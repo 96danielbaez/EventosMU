@@ -1,0 +1,8 @@
+node_modules/
+.env
+
+canal.json
+eventos.json
+mensaje.json
+timezone.json
+permisos.json
