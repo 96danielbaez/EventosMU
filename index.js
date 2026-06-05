@@ -135,8 +135,8 @@ async function actualizarMensaje(client, guildId) {
       const expirado = ahora > e.timestamp;
       const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
       mensaje += expirado
-        ? `> ~~${e.nombre}: ${hora} - (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
-        : `> ${e.nombre}: ${hora} - **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
+        ? `> ~~**${e.nombre}**: ${hora} - (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
+        : `> **${e.nombre}**: ${hora} - **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
     }
     if (additionalText) {
       mensaje += `\n${additionalText}\n`;
