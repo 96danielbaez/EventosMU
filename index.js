@@ -232,11 +232,7 @@ async function actualizarMensaje(client, guildId) {
 
 // ================= CLIENT =================
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 });
 
 client.once(Events.ClientReady, () => {
