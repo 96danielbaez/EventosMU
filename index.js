@@ -700,7 +700,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const lines = members.map((m) => {
-        const name = (m.user && m.user.globalName) || m.nickname || m.user.username;
+        const name = m.nickname || (m.user && m.user.globalName) || m.user.username;
         return `${name}`;
       });
 
