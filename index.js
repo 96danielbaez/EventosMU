@@ -93,9 +93,26 @@ async function actualizarMensaje(client, guildId) {
   const channel = await client.channels.fetch(guildConfig.channelId);
 
   const ahora = Math.floor(Date.now() / 1000);
+  // No filtrar ni eliminar eventos aquí: queremos que el mensaje muestre
+  // también los horarios pasados (marcados como expirados). La limpieza
+  // de eventos antiguos puede realizarse manualmente con /resetear o
+  // mediante una tarea aparte si se desea.
 
-  eventos = eventos.filter((e) => ahora - e.timestamp < 3 * 60 * 60);
-  safeWrite(eventosFile, eventos);
+  console.log(
+    `actualizarMensaje: guild=${guildId} cargados=${eventos.length} eventos, ahora=${ahora}`,
+  );
+
+  // Limpiar eventos mayores a 24 horas (86400 segundos)
+  const CLEANUP_THRESHOLD = 24 * 60 * 60; // segundos
+  const beforeCount = eventos.length;
+  const kept = eventos.filter((e) => ahora - e.timestamp < CLEANUP_THRESHOLD);
+  if (kept.length !== beforeCount) {
+    safeWrite(eventosFile, kept);
+    console.log(
+      `actualizarMensaje: eliminado=${beforeCount - kept.length} eventos antiguos para guild=${guildId}`,
+    );
+  }
+  eventos = kept;
 
   let msgData = safeRead(msgFile, {});
 
@@ -160,6 +177,7 @@ async function actualizarMensaje(client, guildId) {
 
     if (msg) {
       await msg.edit(content);
+      console.log(`Mensaje editado para guild=${guildId} messageId=${msg.id}`);
     } else {
       // El mensaje fue borrado o no existe, crear uno nuevo
       msg = await channel.send(content);
@@ -167,6 +185,7 @@ async function actualizarMensaje(client, guildId) {
         id: msg.id,
         text: typeof guildMsgData === "object" ? guildMsgData.text : undefined,
       };
+      console.log(`Mensaje creado para guild=${guildId} messageId=${msg.id}`);
       safeWrite(msgFile, msgData);
     }
   } catch (err) {
