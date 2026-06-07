@@ -699,9 +699,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, "❌ No hay usuarios en tu canal de voz.");
       }
 
-      const lines = members.map((m, i) => {
+      const lines = members.map((m) => {
         const name = (m.user && m.user.globalName) || m.nickname || m.user.username;
-        return `${i + 1}. ${name}`;
+        return `${name}`;
       });
 
       const content = "```\n" + lines.join("\n") + "\n```";
