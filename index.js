@@ -644,6 +644,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
           minutes,
           offset,
         );
+
+        // Si no se pasó fecha y el nuevo horario ya pasó respecto a ahora, mover al siguiente día
+        if (!fechaTexto) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          if (evento.timestamp <= nowSec) evento.timestamp += 24 * 60 * 60;
+        }
         changedDate = true;
       }
 
