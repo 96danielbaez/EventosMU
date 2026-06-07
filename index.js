@@ -232,7 +232,11 @@ async function actualizarMensaje(client, guildId) {
 
 // ================= CLIENT =================
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
+  ],
 });
 
 client.once(Events.ClientReady, () => {
@@ -682,6 +686,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
         : base;
 
       return await replyAndDelete(interaction, message);
+    }
+
+    // ================= /LISTAR =================
+    if (cmd === "listar") {
+      const member = interaction.member;
+      const voiceChannel = member?.voice?.channel;
+
+      if (!voiceChannel) {
+        return await replyAndDelete(interaction, "❌ No estás en un canal de voz.");
+      }
+
+      const members = Array.from(voiceChannel.members.values());
+
+      if (!members.length) {
+        return await replyAndDelete(interaction, "❌ No hay usuarios en tu canal de voz.");
+      }
+
+      const lines = members.map((m, i) => {
+        const name = (m.user && m.user.globalName) || m.nickname || m.user.username;
+        return `${i + 1}. ${name}`;
+      });
+
+      const content = "```\n" + lines.join("\n") + "\n```";
+
+      return await interaction.reply({ content, ephemeral: false });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);

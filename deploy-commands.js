@@ -100,6 +100,10 @@ const commands = [
         .setDescription("Texto opcional que aparecerá debajo del título.")
         .setRequired(false),
     ),
+  // COMANDO PARA LISTAR USUARIOS EN VOICE
+  new SlashCommandBuilder()
+    .setName("listar")
+    .setDescription("Lista los usuarios conectados en tu canal de voz."),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);
