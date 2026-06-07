@@ -146,7 +146,7 @@ async function actualizarMensaje(client, guildId) {
       : undefined;
 
     if (eventos.length === 0) {
-      let mensaje = "## 📌 EVENTOS: BOSSES DIARIOS. \n\n";
+      let mensaje = "## 📌 HORARIOS: BOSSES O EVENTOS \n\n";
       mensaje += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
       mensaje +=
         "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
@@ -159,11 +159,11 @@ async function actualizarMensaje(client, guildId) {
 
     eventos.sort((a, b) => a.timestamp - b.timestamp);
 
-    let mensaje = "## 📌 EVENTOS: BOSSES DIARIOS. \n";
+    let mensaje = "## 📌 HORARIOS: BOSSES O EVENTOS \n";
     const offset = getTZ(guildId);
     const offsetMs = offset * 60 * 60 * 1000;
     mensaje += `-# LISTADO EN: **HORA SERVER** (UTC ${offset >= 0 ? "+" : ""}${offset}).\n`;
-    mensaje += "### BOSSES PRÓXIMOS\n\n";
+    mensaje += "### EVENTOS PRÓXIMOS\n\n";
 
     for (const e of eventos) {
       const fecha = new Date(e.timestamp * 1000);
