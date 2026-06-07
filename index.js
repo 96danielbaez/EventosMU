@@ -70,6 +70,27 @@ function getTZ(guildId) {
   return tz[guildId] ?? -3;
 }
 
+// ================= TIME HELPERS =================
+function tzTimestampFromComponents(year, month, day, hour, minute, offset) {
+  const offsetMs = Number(offset) * 60 * 60 * 1000;
+  const msUTC = Date.UTC(year, month, day, hour, minute, 0, 0);
+  const utcMs = msUTC - offsetMs;
+  return Math.floor(utcMs / 1000);
+}
+
+function tzComponentsFromTimestamp(timestampSec, offset) {
+  const offsetMs = Number(offset) * 60 * 60 * 1000;
+  const d = new Date(timestampSec * 1000);
+  const tzDate = new Date(d.getTime() + offsetMs);
+  return {
+    year: tzDate.getUTCFullYear(),
+    month: tzDate.getUTCMonth(),
+    day: tzDate.getUTCDate(),
+    hour: tzDate.getUTCHours(),
+    minute: tzDate.getUTCMinutes(),
+  };
+}
+
 // ================= PERMISOS =================
 function loadPermisos() {
   return safeRead("permisos.json", {});
@@ -410,36 +431,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const offset = getTZ(interaction.guild.id);
-      const offsetMs = offset * 60 * 60 * 1000;
       const [h, m] = horario.split(":").map(Number);
 
-      // 📌 Hora actual en UTC y en TZ
-      const now = new Date();
-      const nowInTZ = new Date(now.getTime() + offsetMs);
+      // Calcular timestamp en UTC a partir de componentes en TZ
+      const nowSec = Math.floor(Date.now() / 1000);
+      const nowTz = tzComponentsFromTimestamp(nowSec, offset);
 
-      // 📌 Obtener fecha base
-      let year = nowInTZ.getUTCFullYear();
-      let month = nowInTZ.getUTCMonth();
-      let day = nowInTZ.getUTCDate();
+      let year = nowTz.year;
+      let month = nowTz.month;
+      let day = nowTz.day;
 
-      // 📌 Si hay fecha → usarla
       if (fechaTexto) {
         const [dia, mes] = fechaTexto.split("-").map(Number);
         month = mes - 1;
         day = dia;
       }
 
-      // 📌 Crear la fecha del evento EN TZ (con el horario ingresado)
-      let fechaEnTZ = new Date(Date.UTC(year, month, day, h, m, 0, 0));
+      let timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
 
-      // 📌 Si NO hay fecha y ya pasó → mañana
-      if (!fechaTexto && fechaEnTZ <= nowInTZ) {
-        fechaEnTZ.setUTCDate(fechaEnTZ.getUTCDate() + 1);
-      }
-
-      // 📌 Convertir a UTC (restar offset)
-      const utc = new Date(fechaEnTZ.getTime() - offsetMs);
-      const timestamp = Math.floor(utc.getTime() / 1000);
+      // Si no se pasó fecha y ya pasó hoy → mañana
+      if (!fechaTexto && timestamp <= nowSec) timestamp += 24 * 60 * 60;
 
       let eventos = safeRead(eventosFile, []);
       const id = eventos.length ? Math.max(...eventos.map((e) => e.id)) + 1 : 1;
@@ -580,19 +591,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (horario || fechaTexto) {
         if (horario) changedTime = true;
-        const offset = getTZ(interaction.guild.id);
-        const offsetMs = offset * 60 * 60 * 1000;
+          const offset = getTZ(interaction.guild.id);
 
-        // Obtener fecha actual del evento en UTC y convertir a TZ
-        const fechaEventoUTC = new Date(evento.timestamp * 1000);
-        const fechaEnTZ = new Date(fechaEventoUTC.getTime() + offsetMs);
+          // Obtener componentes en TZ del evento existente
+          const base = tzComponentsFromTimestamp(evento.timestamp, offset);
 
-        // Valores base (si no se proporcionan nuevos)
-        let year = fechaEnTZ.getUTCFullYear();
-        let month = fechaEnTZ.getUTCMonth();
-        let day = fechaEnTZ.getUTCDate();
-        let hours = fechaEnTZ.getUTCHours();
-        let minutes = fechaEnTZ.getUTCMinutes();
+          let year = base.year;
+          let month = base.month;
+          let day = base.day;
+          let hours = base.hour;
+          let minutes = base.minute;
 
         // Si se pasó fecha, reemplazar día/mes (validar formato DD-MM)
         if (fechaTexto) {
@@ -627,14 +635,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
           minutes = m;
         }
 
-        // Crear nueva fecha en TZ con los valores finales
-        const nuevaFechaEnTZ = new Date(
-          Date.UTC(year, month, day, hours, minutes, 0, 0),
+        // Crear nuevo timestamp (UTC) a partir de componentes en TZ
+        evento.timestamp = tzTimestampFromComponents(
+          year,
+          month,
+          day,
+          hours,
+          minutes,
+          offset,
         );
-
-        // Convertir a UTC y guardar
-        const nuevoUTC = new Date(nuevaFechaEnTZ.getTime() - offsetMs);
-        evento.timestamp = Math.floor(nuevoUTC.getTime() / 1000);
         changedDate = true;
       }
 
