@@ -193,8 +193,37 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-client.once("clientReady", () => {
+client.once(Events.ClientReady, () => {
   console.log(`Conectado como ${client.user.tag}`);
+});
+
+// ================= ACTUALIZACIÓN PERIÓDICA =================
+const DEFAULT_UPDATE_INTERVAL = 60; // segundos
+
+function startAutoUpdate(client) {
+  const secs = Math.max(
+    10,
+    Number(process.env.UPDATE_INTERVAL_SECONDS) || DEFAULT_UPDATE_INTERVAL,
+  );
+  const ms = secs * 1000;
+
+  console.log(`Iniciando actualización periódica de horarios cada ${secs} segundos.`);
+
+  setInterval(async () => {
+    try {
+      const config = loadConfig();
+      const guildIds = Object.keys(config || {});
+      for (const guildId of guildIds) {
+        await actualizarMensaje(client, guildId);
+      }
+    } catch (err) {
+      console.error("Error en actualización periódica:", err);
+    }
+  }, ms);
+}
+
+client.on(Events.ClientReady, () => {
+  startAutoUpdate(client);
 });
 
 // ================= INTERACCIONES (UN SOLO HANDLER) =================
