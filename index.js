@@ -593,8 +593,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (horario) changedTime = true;
           const offset = getTZ(interaction.guild.id);
 
-          // Obtener componentes en TZ del evento existente
-          const base = tzComponentsFromTimestamp(evento.timestamp, offset);
+          // Si no se pasa `fecha`, usamos la fecha ACTUAL en la TZ del servidor
+          // para que editar sólo el horario aplique al día de hoy (o mañana
+          // si el horario ya pasó). Si se pasa `fecha`, se sobrescribe abajo.
+          const nowSec = Math.floor(Date.now() / 1000);
+          const base = tzComponentsFromTimestamp(nowSec, offset);
 
           let year = base.year;
           let month = base.month;
