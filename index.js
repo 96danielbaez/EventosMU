@@ -240,7 +240,7 @@ client.once(Events.ClientReady, () => {
 });
 
 // ================= ACTUALIZACIÓN PERIÓDICA =================
-const DEFAULT_UPDATE_INTERVAL = 60; // segundos
+const DEFAULT_UPDATE_INTERVAL = 43200; // CADA 12 hs se actualiza el mensaje (en segundos).
 
 function startAutoUpdate(client) {
   const secs = Math.max(
