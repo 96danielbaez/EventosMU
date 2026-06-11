@@ -104,6 +104,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName("listar")
     .setDescription("Lista los usuarios conectados en tu canal de voz."),
+  // COMANDO PARA ACTUALIZAR EL MENSAJE MANUALMENTE
+  new SlashCommandBuilder()
+    .setName("actualizar")
+    .setDescription("Actualiza el mensaje de horarios en el canal designado."),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);

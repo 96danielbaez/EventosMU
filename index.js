@@ -317,6 +317,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "editar",
       "eliminar",
       "resetear",
+      "actualizar",
     ];
 
     // ================= ADMIN CHECK (FIX IMPORTANTE) =================
@@ -517,6 +518,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
         `🌍 Timezone: UTC ${tz >= 0 ? "+" : ""}${tz}`,
       );
     }
+
+    // ================= /ACTUALIZAR =================
+    if (cmd === "actualizar") {
+      const settings = await getSettings(interaction.guild.id);
+      if (!settings.channelId) {
+        return await replyAndDelete(
+          interaction,
+          "❌ Primero define el canal de eventos con /canal.",
+        );
+      }
+
+      await actualizarMensaje(interaction.client, interaction.guild.id);
+      return await replyAndDelete(interaction, "✅ Mensaje de horarios **ACTUALIZADO**.");
+    }
+
     // ================= /MENSAJE =================
     if (cmd === "mensaje") {
       const texto = interaction.options.getString("mensaje") || "";
