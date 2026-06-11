@@ -15,7 +15,7 @@ const {
 const SettingsSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   channelId: String,
-  timezone: { type: Number, default: -3 },
+  timezone: { type: Number, default: 2 },
   roleId: String,
   messageId: String,
   additionalText: String,
@@ -338,6 +338,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "eliminar",
       "resetear",
       "actualizar",
+      "configuracion",
     ];
 
     // ================= ADMIN CHECK (FIX IMPORTANTE) =================
@@ -551,6 +552,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await actualizarMensaje(interaction.client, interaction.guild.id);
       return await replyAndDelete(interaction, "✅ Mensaje de horarios **ACTUALIZADO**.");
+    }
+
+    // ================= /CONFIGURACION =================
+    if (cmd === "configuracion") {
+      const settings = await getSettings(interaction.guild.id);
+      const embed = new EmbedBuilder()
+        .setTitle("⚙️ Configuración Actual")
+        .setColor(0x00ae86)
+        .addFields(
+          { name: "Canal de Eventos", value: settings.channelId ? `<#${settings.channelId}>` : "No configurado", inline: true },
+          { name: "Timezone (UTC)", value: `${settings.timezone >= 0 ? "+" : ""}${settings.timezone}`, inline: true },
+          { name: "Rol con Permisos", value: settings.roleId ? `<@&${settings.roleId}>` : "Todos (propietario/admin)", inline: true },
+          { name: "Mensaje Adicional", value: settings.additionalText || "Ninguno" }
+        )
+        .setFooter({ text: "Datos guardados en MongoDB" });
+
+      return await interaction.editReply({ embeds: [embed] });
     }
 
     // ================= /MENSAJE =================

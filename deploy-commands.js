@@ -104,6 +104,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName("listar")
     .setDescription("Lista los usuarios conectados en tu canal de voz."),
+  // COMANDO PARA VER LA CONFIGURACIÓN ACTUAL
+  new SlashCommandBuilder()
+    .setName("configuracion")
+    .setDescription("Muestra la configuración guardada del bot en este servidor."),
   // COMANDO PARA ACTUALIZAR EL MENSAJE MANUALMENTE
   new SlashCommandBuilder()
     .setName("actualizar")
