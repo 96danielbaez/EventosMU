@@ -167,6 +167,8 @@ async function actualizarMensaje(client, guildId) {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
 
+      let desc = "";
+
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
         const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
@@ -176,8 +178,8 @@ async function actualizarMensaje(client, guildId) {
         const expirado = ahora > e.timestamp;
         const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
 
-        let desc = expirado
-          ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) *por* ${usuario} [#${e.id}] ~~\n`
+        desc += expirado
+          ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) *por* ${usuario} [#${e.id}]~~\n`
           : `**${e.nombre}**: ${hora} **(<t:${e.timestamp}:R>)** *por* ${usuario} [#${e.id}]\n`;
       }
 
