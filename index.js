@@ -8,6 +8,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField,
+  EmbedBuilder,
 } = require("discord.js");
 
 const configFile = "canal.json";
@@ -128,7 +129,7 @@ async function actualizarMensaje(client, guildId) {
 
   let msgData = safeRead(msgFile, {});
 
-  const buildMessage = () => {
+  const buildEmbed = () => {
     const guildMsgData = msgData[guildId];
     const additionalText = guildMsgData
       ? typeof guildMsgData === "object"
@@ -136,46 +137,48 @@ async function actualizarMensaje(client, guildId) {
         : undefined
       : undefined;
 
+    const embed = new EmbedBuilder()
+      .setTitle("📌 HORARIOS: BOSSES O EVENTOS")
+      .setColor(0x00ae86); // Color del borde (Cian/Verde)
+
     if (eventos.length === 0) {
-      let mensaje = "## 📌 HORARIOS: BOSSES O EVENTOS \n\n";
-      mensaje += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
-      mensaje +=
-        "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (additionalText) {
-        mensaje += `${additionalText}\n\n`;
+      let desc = "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
+      desc += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
+      if (additionalText) desc += `\n${additionalText}\n`;
+      
+      embed.setDescription(desc);
+    } else {
+      eventos.sort((a, b) => a.timestamp - b.timestamp);
+      const offset = getTZ(guildId);
+      const offsetMs = offset * 60 * 60 * 1000;
+
+      let desc = `-# LISTADO EN: **HORA SERVER** (UTC ${offset >= 0 ? "+" : ""}${offset}).\n`;
+      desc += "### EVENTOS PRÓXIMOS\n\n";
+
+      for (const e of eventos) {
+        const fecha = new Date(e.timestamp * 1000);
+        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+        const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
+        const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
+        const hora = `${horas}:${minutos}`;
+        const expirado = ahora > e.timestamp;
+        const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
+
+        desc += expirado
+          ? `~~**${e.nombre}**: ${hora} - (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
+          : `**${e.nombre}**: ${hora} - **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
       }
-      mensaje += `\n**Última actualización**: (<t:${ahora}:R>)\n`;
-      return mensaje;
+
+      if (additionalText) desc += `\n${additionalText}\n`;
+      embed.setDescription(desc);
     }
 
-    eventos.sort((a, b) => a.timestamp - b.timestamp);
-
-    let mensaje = "## 📌 HORARIOS: BOSSES O EVENTOS \n";
-    const offset = getTZ(guildId);
-    const offsetMs = offset * 60 * 60 * 1000;
-    mensaje += `-# LISTADO EN: **HORA SERVER** (UTC ${offset >= 0 ? "+" : ""}${offset}).\n`;
-    mensaje += "### EVENTOS PRÓXIMOS\n\n";
-
-    for (const e of eventos) {
-      const fecha = new Date(e.timestamp * 1000);
-      const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
-      const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
-      const hora = `${horas}:${minutos}`;
-      const expirado = ahora > e.timestamp;
-      const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
-      mensaje += expirado
-        ? `> ~~**${e.nombre}**: ${hora} - (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
-        : `> **${e.nombre}**: ${hora} - **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
-    }
-    if (additionalText) {
-      mensaje += `\n${additionalText}\n`;
-    }
-    mensaje += `\n**Última actualización**: (<t:${ahora}:R>)\n`;
-    return mensaje;
+    embed.setFooter({ text: "Última actualización" });
+    embed.setTimestamp(new Date(ahora * 1000));
+    return embed;
   };
 
-  const content = buildMessage();
+  const embed = buildEmbed();
 
   try {
     const guildMsgData = msgData[guildId];
@@ -191,7 +194,7 @@ async function actualizarMensaje(client, guildId) {
 
     if (msg) await msg.delete().catch(() => {});
 
-    const newMsg = await channel.send(content);
+    const newMsg = await channel.send({ embeds: [embed] });
     msgData[guildId] = {
       id: newMsg.id,
       text: typeof guildMsgData === "object" ? guildMsgData.text : undefined,
