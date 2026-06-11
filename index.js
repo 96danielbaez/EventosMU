@@ -180,10 +180,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
         if (expirado) {
           // Eventos expirados: todo en una línea y tachado con autor
-          content += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}> [#${e.id}]~~\n`;
+          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}> [#${e.id}]~~\n`;
         } else {
           // Misma línea: Nombre en negrita, horario normal, timestamp en negrita y autor
-          content += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}>\n`;
+          content += `⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}>\n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
