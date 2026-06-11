@@ -88,6 +88,8 @@ async function replyAndDelete(
       // se llama replyAndDelete sin un defer previo (ej. en un error no capturado antes).
       await interaction.reply({ embeds: [embed], ephemeral: true });
     }
+    // Borrar mensaje efímero tras 10 segundos
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
   }
@@ -259,6 +261,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setDescription("✅ HORARIOS RESETEADOS")
           .setColor(0xff0000); // Rojo para indicar que se borró todo
         await interaction.editReply({ content: null, embeds: [embed], components: [], ephemeral: true });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
         return;
       }
 
@@ -267,6 +270,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setDescription("❌ CANCELADO")
           .setColor(0xff0000);
         await interaction.update({ content: null, embeds: [embed], components: [], ephemeral: true });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
         return;
       }
 
@@ -371,7 +375,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const embed = new EmbedBuilder()
         .setDescription("¿ESTÁS SEGURO? •⚠️")
         .setColor(0xffcc00); // Color amarillo para advertencia
-      return interaction.editReply({ embeds: [embed], components: [row], ephemeral: true });
+      await interaction.editReply({ embeds: [embed], components: [row], ephemeral: true });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
     // ================= /AGREGAR =================
@@ -515,7 +520,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         )
         .setFooter({ text: "Datos guardados en MongoDB" });
 
-      return await interaction.editReply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed], ephemeral: true });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
     // ================= /MENSAJE =================
@@ -696,7 +702,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const content = "```\n" + lines.join("\n") + "\n```";
 
-      return await interaction.editReply({ content, ephemeral: true });
+      await interaction.editReply({ content, ephemeral: true });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
