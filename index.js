@@ -149,7 +149,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     if (eventos.length === 0) {
       content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
       content += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (settings.additionalText) content += `\n> ${settings.additionalText}\n`;
+      if (settings.additionalText) {
+        const quotedText = settings.additionalText.split("\n").map(line => `> ${line}`).join("\n");
+        content += `\n${quotedText}\n`;
+      }
     } else {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
@@ -181,7 +184,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         }
       }
 
-      if (settings.additionalText) content += `\n${settings.additionalText}\n`;
+      if (settings.additionalText) {
+        const quotedText = settings.additionalText.split("\n").map(line => `> ${line}`).join("\n");
+        content += `\n${quotedText}\n`;
+      }
     }
 
     content += `\n-# Podes aportar a la lista usando el comando **/agregar**.`;
