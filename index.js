@@ -162,15 +162,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const expirado = ahora > e.timestamp;
 
         if (expirado) {
-          // Eventos expirados: línea principal tachada
-          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n`;
-          // Autor en línea separada y pequeña, también tachado
-          content += `-# ~~por <@${e.userId}>~~\n`;
+          // Eventos expirados: línea principal tachada (sin ID)
+          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
+          // ID y autor en línea separada y pequeña, también tachado
+          content += `-# ~~EVENTO [#${e.id}] añadido por <@${e.userId}>~~\n`;
         } else {
           // Línea principal
           content += `⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
-          // Autor en línea separada y pequeña
-          content += `-# por <@${e.userId}>\n`;
+          // ID y autor en línea separada y pequeña
+          content += `-# EVENTO [#${e.id}] añadido por <@${e.userId}>\n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
