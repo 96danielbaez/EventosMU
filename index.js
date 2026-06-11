@@ -178,10 +178,13 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
         const expirado = ahora > e.timestamp;
 
         if (expirado) {
-          content += `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) [#${e.id}]~~\n`;
+          // Eventos expirados: todo tachado
+          content += `~~**${e.nombre}**~~\n~~${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n\n`;
         } else {
-          // Usamos ### para que la letra sea grande. Nota: Esto forzará negrita en toda la línea.
-          content += `### **${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
+          // Título: Grande (###) y en negrita (**)
+          content += `### **${e.nombre}**\n`;
+          // Horario: Normal, y Timestamp en negrita (**)
+          content += `${hora} (**<t:${e.timestamp}:R>**)\n\n`;
         }
       }
 
