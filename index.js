@@ -170,12 +170,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           // Eventos expirados: línea principal tachada (sin ID)
           content += `> ~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
           // ID y autor en línea separada y pequeña, también tachado
-          content += `> -# ~~[#${e.id}] añadido por <@${e.userId}>~~\n`;
+          content += `> -# ↪ ~~añadido por <@${e.userId}> ∙ [#${e.id}] ~~\n`;
         } else {
           // Línea principal
           content += `> ⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
           // ID y autor en línea separada y pequeña
-          content += `> -# [#${e.id}] añadido por <@${e.userId}>\n`;
+          content += `> -# ↪ añadido por <@${e.userId}> ∙ [#${e.id}] \n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
