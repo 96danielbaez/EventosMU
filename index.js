@@ -8,7 +8,6 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField,
-  MessageFlags,
 } = require("discord.js");
 
 const configFile = "canal.json";
@@ -20,22 +19,15 @@ const msgFile = "mensaje.json";
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm
 const DATE_RE = /^([0-2]\d|3[0-1])-(0[1-9]|1[0-2])$/; // DD-MM
 
-// ⚙️ CONFIGURACIÓN GLOBAL
-const REPLY_DELETE_DELAY = 10000; // Milisegundos antes de borrar respuestas efímeras
-
-// ================= HELPER REPLY AUTO-DELETE =================
+// ================= HELPER REPLY =================
 async function replyAndDelete(
   interaction,
-  content,
-  delayMs = REPLY_DELETE_DELAY,
+  content
 ) {
   try {
-    const reply = await interaction.reply({
+    await interaction.reply({
       content,
     });
-    setTimeout(() => {
-      reply.delete().catch(() => {});
-    }, delayMs);
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
   }
