@@ -144,7 +144,7 @@ async function actualizarMensaje(client, guildId) {
       if (additionalText) {
         mensaje += `${additionalText}\n\n`;
       }
-      mensaje += `\n**Última actualización**: <t:${ahora}:F> (<t:${ahora}:R>)\n`;
+      mensaje += `\n**Última actualización**: (<t:${ahora}:R>)\n`;
       return mensaje;
     }
 
@@ -171,7 +171,7 @@ async function actualizarMensaje(client, guildId) {
     if (additionalText) {
       mensaje += `\n${additionalText}\n`;
     }
-    mensaje += `\n**Última actualización**: <t:${ahora}:F> (<t:${ahora}:R>)\n`;
+    mensaje += `\n**Última actualización**: (<t:${ahora}:R>)\n`;
     return mensaje;
   };
 
