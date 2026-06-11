@@ -41,6 +41,16 @@ async function replyAndDelete(
     await interaction.reply({
       embeds: [embed],
     });
+
+    // Duplicar en el canal configurado si el comando se usó en otro chat
+    const config = loadConfig();
+    const targetChannelId = config[interaction.guild.id]?.channelId;
+    if (targetChannelId && interaction.channelId !== targetChannelId) {
+      const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
+      if (targetChannel) {
+        await targetChannel.send({ embeds: [embed] }).catch(() => {});
+      }
+    }
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
   }
@@ -281,22 +291,44 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
           .setColor(0xff0000); // Rojo para indicar que se borró todo
-        return interaction.editReply({
+        await interaction.editReply({
           content: null,
           embeds: [embed],
           components: [],
         });
+
+        // Duplicar en el canal configurado si es distinto al actual
+        const config = loadConfig();
+        const targetChannelId = config[interaction.guild.id]?.channelId;
+        if (targetChannelId && interaction.channelId !== targetChannelId) {
+          const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
+          if (targetChannel) {
+            await targetChannel.send({ embeds: [embed] }).catch(() => {});
+          }
+        }
+        return;
       }
 
       if (interaction.customId === "cancel_reset") {
         const embed = new EmbedBuilder()
           .setDescription("❌ CANCELADO")
           .setColor(0xff0000);
-        return interaction.update({
+        await interaction.update({
           content: null,
           embeds: [embed],
           components: [],
         });
+
+        // Duplicar en el canal configurado si es distinto al actual
+        const config = loadConfig();
+        const targetChannelId = config[interaction.guild.id]?.channelId;
+        if (targetChannelId && interaction.channelId !== targetChannelId) {
+          const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
+          if (targetChannel) {
+            await targetChannel.send({ embeds: [embed] }).catch(() => {});
+          }
+        }
+        return;
       }
 
       return;
