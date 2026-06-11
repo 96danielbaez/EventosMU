@@ -142,7 +142,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
   const buildContent = () => {
-    let content = `# EVENTOS PRÓXIMOS 📌\n`;
+    let content = `# EVENTOS PRÓXIMOS\n`;
 
     if (eventos.length === 0) {
       content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
@@ -163,14 +163,14 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
         if (expirado) {
           // Eventos expirados: línea principal tachada (sin ID)
-          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
+          content += `> ~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
           // ID y autor en línea separada y pequeña, también tachado
-          content += `-# ~~[#${e.id}] añadido por <@${e.userId}>~~\n`;
+          content += `> -# ~~[#${e.id}] añadido por <@${e.userId}>~~\n`;
         } else {
           // Línea principal
-          content += `⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
+          content += `> ⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
           // ID y autor en línea separada y pequeña
-          content += `-# [#${e.id}] añadido por <@${e.userId}>\n`;
+          content += `> -# [#${e.id}] añadido por <@${e.userId}>\n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
