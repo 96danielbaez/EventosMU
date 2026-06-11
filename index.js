@@ -143,58 +143,49 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
-  const buildContent = () => {
-    let content = `# 📢 PRÓXIMOS EVENTOS\n`;
+  const embed = new EmbedBuilder()
+    .setTitle("📢 PRÓXIMOS EVENTOS")
+    .setColor(0x0099ff) // Color azul para la barra lateral
+    .setTimestamp();
 
-    if (eventos.length === 0) {
-      content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
-      content += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (settings.additionalText) {
-        const quotedText = settings.additionalText.split("\n").map(line => `> ${line}`).join("\n");
-        content += `\n${quotedText}\n`;
-      }
-    } else {
-      const offset = settings.timezone;
-      const offsetMs = offset * 60 * 60 * 1000;
+  let description = "";
 
-      for (let i = 0; i < eventos.length; i++) {
-        const e = eventos[i];
-        const fecha = new Date(e.timestamp * 1000);
-        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-        const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
-        const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
-        const hora = `${horas}:${minutos}`;
-        const expirado = ahora > e.timestamp;
+  if (eventos.length === 0) {
+    description = "> 😴 **No hay eventos cargados.**\n" +
+                  "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
+  } else {
+    const offset = settings.timezone;
+    const offsetMs = offset * 60 * 60 * 1000;
 
-        if (expirado) {
-          // Eventos expirados: línea principal tachada (sin ID)
-          content += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
-          // ID y autor en línea separada y pequeña, también tachado
-          content += `> -# ↪ ~~añadido por <@${e.userId}> ∙ [#${e.id}] ~~\n`;
-        } else {
-          // Línea principal
-          content += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
-          // ID y autor en línea separada y pequeña
-          content += `> -# ↪ añadido por <@${e.userId}> ∙ [#${e.id}] \n`;
-        }
+    for (let i = 0; i < eventos.length; i++) {
+      const e = eventos[i];
+      const fecha = new Date(e.timestamp * 1000);
+      const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+      const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
+      const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
+      const hora = `${horas}:${minutos}`;
+      const expirado = ahora > e.timestamp;
 
-        // Añadir separador entre eventos (excepto después del último)
-        if (i < eventos.length - 1) {
-          content += "-----------------------------\n";
-        }
+      if (expirado) {
+        description += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
+        description += `> -# ↪ ~~añadido por <@${e.userId}> ∙ [#${e.id}] ~~\n`;
+      } else {
+        description += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
+        description += `> -# ↪ añadido por <@${e.userId}> ∙ [#${e.id}] \n`;
       }
 
-      if (settings.additionalText) {
-        const quotedText = settings.additionalText.split("\n").map(line => `> ${line}`).join("\n");
-        content += `\n${quotedText}\n`;
+      if (i < eventos.length - 1) {
+        description += "───────────────\n"; // Separador visual sutil
       }
     }
+  }
 
-    content += `\n-# Podes aportar a la lista usando el comando **/agregar**.`;
-    return content;
-  };
+  if (settings.additionalText) {
+    description += `\n${settings.additionalText}`;
+  }
 
-  const finalContent = buildContent();
+  embed.setDescription(description);
+  embed.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
 
   try {
     let msg = settings.messageId
@@ -203,7 +194,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
     if (msg) await msg.delete().catch(() => {});
 
-    const newMsg = await channel.send({ content: finalContent });
+    const newMsg = await channel.send({ embeds: [embed] });
     settings.messageId = newMsg.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
