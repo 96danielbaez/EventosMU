@@ -195,7 +195,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       ? `Última actualización por: <@${settings.lastUpdatedBy}>` 
       : "Última actualización";
     
-    content += `\n-# ${footerText} • <t:${ahora}:F>`;
+    content += `\n-# ${footerText}`;
     return content;
   };
 
