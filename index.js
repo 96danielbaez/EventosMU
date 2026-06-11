@@ -169,7 +169,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
 
-      for (const e of eventos) {
+      for (let i = 0; i < eventos.length; i++) {
+        const e = eventos[i];
         const fecha = new Date(e.timestamp * 1000);
         const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
         const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
@@ -185,6 +186,11 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           content += `### **${e.nombre}**\n`;
           // Horario: Normal, y Timestamp en negrita (**)
           content += `${hora} (**<t:${e.timestamp}:R>**)\n`;
+        }
+
+        // Añadir separador entre eventos (excepto después del último)
+        if (i < eventos.length - 1) {
+          content += "-----------------------------\n";
         }
       }
 
