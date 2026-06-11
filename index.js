@@ -71,6 +71,7 @@ async function replyAndDelete(
     const isRed = content.includes("❌") || content.includes("ELIMINADO") || content.includes("BORRADO");
     // Color amarillo para comandos de configuración exitosos
     const isConfig = ["canal", "permisos", "timezone"].includes(interaction.commandName);
+    const isPublic = interaction.commandName === "listar";
 
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
@@ -82,14 +83,16 @@ async function replyAndDelete(
 
     // Si la interacción ya fue diferida o respondida, usamos editReply
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed] });
     } else {
       // Aunque deferReply ya se encarga de esto, lo mantenemos por si acaso
       // se llama replyAndDelete sin un defer previo (ej. en un error no capturado antes).
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
     }
-    // Borrar mensaje efímero tras 10 segundos
-    setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    // Borrar mensaje solo si es efímero (no para /listar)
+    if (!isPublic) {
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    }
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
   }
@@ -686,7 +689,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // ================= /LISTAR =================
     if (cmd === "listar") {
-      const member = interaction.member;
+      // Forzamos la obtención del miembro desde la API para asegurar datos de voz actualizados
+      const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => interaction.member);
       const voiceChannel = member?.voice?.channel;
 
       if (!voiceChannel) {
