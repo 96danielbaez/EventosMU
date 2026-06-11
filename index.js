@@ -183,7 +183,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     description += `\n${settings.additionalText}`;
   }
 
-  description += `\n\n-# 🔄 Última actualización: <t:${ahora}:R>`;
+  description += `\n-# 🔄 Última actualización: <t:${ahora}:R>`;
 
   embed.setDescription(description);
   embed.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
