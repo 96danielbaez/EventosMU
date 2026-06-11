@@ -60,6 +60,17 @@ async function getNextEventId(guildId) {
 // Validaciones de formatos
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm
 const DATE_RE = /^([0-2]\d|3[0-1])-(0[1-9]|1[0-2])$/; // DD-MM
+const WEEKDAYS = {
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  miércoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
+  sábado: 6,
+  domingo: 0,
+};
 
 // ================= HELPER REPLY =================
 async function replyAndDelete(
@@ -391,6 +402,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const nombre = interaction.options.getString("nombre");
       const horario = interaction.options.getString("horario");
       const fechaTexto = interaction.options.getString("fecha");
+      const diaInput = interaction.options.getString("dia");
 
       // Validaciones de input
       if (!TIME_RE.test(horario)) {
@@ -404,6 +416,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(
           interaction,
           "❌ Formato de fecha inválido. Usa DD-MM (ej: 08-06)",
+        );
+      }
+
+      if (fechaTexto && diaInput) {
+        return await replyAndDelete(
+          interaction,
+          "❌ No podés usar 'fecha' y 'dia' al mismo tiempo.",
         );
       }
 
@@ -426,16 +445,37 @@ client.on(Events.InteractionCreate, async (interaction) => {
       let month = nowTz.month;
       let day = nowTz.day;
 
+      let timestamp;
+
       if (fechaTexto) {
         const [dia, mes] = fechaTexto.split("-").map(Number);
         month = mes - 1;
         day = dia;
+        timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
+      } else if (diaInput) {
+        const targetIndex = WEEKDAYS[diaInput.toLowerCase()];
+        if (targetIndex === undefined) {
+          return await replyAndDelete(
+            interaction,
+            "❌ Día de la semana inválido. Usá Lunes, Martes, etc.",
+          );
+        }
+
+        const currentTzDate = new Date(Date.UTC(nowTz.year, nowTz.month, nowTz.day));
+        const currentDayIndex = currentTzDate.getUTCDay();
+        let daysToAdd = (targetIndex - currentDayIndex + 7) % 7;
+
+        timestamp = tzTimestampFromComponents(year, month, day + daysToAdd, h, m, offset);
+
+        // Si es hoy y ya pasó el horario, saltamos a la semana que viene
+        if (daysToAdd === 0 && timestamp <= nowSec) {
+          timestamp += 7 * 24 * 60 * 60;
+        }
+      } else {
+        timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
+        // Si no se pasó fecha/día y ya pasó hoy → mañana
+        if (timestamp <= nowSec) timestamp += 24 * 60 * 60;
       }
-
-      let timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
-
-      // Si no se pasó fecha y ya pasó hoy → mañana
-      if (!fechaTexto && timestamp <= nowSec) timestamp += 24 * 60 * 60;
 
       const id = await getNextEventId(interaction.guild.id);
       await EventModel.create({
@@ -448,7 +488,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
-      const infoHorario = fechaTexto ? `${horario} (${fechaTexto})` : horario;
+      const infoHorario = fechaTexto
+        ? `${horario} (${fechaTexto})`
+        : diaInput
+        ? `${horario} (${diaInput})`
+        : horario;
       return await replyAndDelete(
         interaction,
         `✅ Evento (#${id}) • **${nombre}** • **${infoHorario}** • **AGREGADO**`,

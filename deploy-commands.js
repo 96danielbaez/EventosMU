@@ -42,6 +42,12 @@ const commands = [
         .setName("fecha")
         .setDescription("Formato DD-MM.")
         .setRequired(false),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("dia")
+        .setDescription("Día de la semana (Lunes, Martes...).")
+        .setRequired(false),
     ),
   // COMANDO PARA ELIMINAR EVENTOS INDIVIDUALES
   new SlashCommandBuilder()
