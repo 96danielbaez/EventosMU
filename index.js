@@ -139,14 +139,14 @@ async function tienePermiso(interaction) {
 }
 
 // ================= MENSAJE =================
-async function actualizarMensaje(client, guildId, updaterName = null) {
+async function actualizarMensaje(client, guildId, updaterId = null) {
   const settings = await getSettings(guildId);
   if (!settings.channelId) return;
 
   const channel = await client.channels.fetch(settings.channelId);
 
-  if (updaterName) {
-    settings.lastUpdatedBy = updaterName;
+  if (updaterId) {
+    settings.lastUpdatedBy = updaterId;
     await settings.save();
   }
 
@@ -192,7 +192,7 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
     }
 
     const footerText = settings.lastUpdatedBy 
-      ? `Última actualización por: ${settings.lastUpdatedBy}` 
+      ? `Última actualización por: <@${settings.lastUpdatedBy}>` 
       : "Última actualización";
     
     content += `\n-# ${footerText} • <t:${ahora}:F>`;
@@ -266,7 +266,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const settings = await getSettings(interaction.guild.id);
         settings.additionalText = undefined;
         await settings.save();
-        await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+        await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
@@ -486,7 +486,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         userId: interaction.user.id
       });
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       const infoHorario = fechaTexto ? `${horario} (${fechaTexto})` : horario;
       return await replyAndDelete(
@@ -512,7 +512,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
       }
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       return await replyAndDelete(
         interaction,
@@ -549,7 +549,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
       return await replyAndDelete(interaction, "✅ Mensaje de horarios **ACTUALIZADO**.");
     }
 
@@ -577,7 +577,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.additionalText = texto || undefined;
       await settings.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       return await replyAndDelete(
         interaction,
@@ -699,7 +699,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       await evento.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, `@${interaction.user.displayName}`);
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       // Preparar mensaje de confirmación con detalles
       const details = [];
