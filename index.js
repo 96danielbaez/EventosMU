@@ -142,7 +142,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
   const buildContent = () => {
-    let content = `# 📌 EVENTOS PRÓXIMOS\n`;
+    let content = `# EVENTOS PRÓXIMOS 📌\n`;
 
     if (eventos.length === 0) {
       content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
@@ -182,7 +182,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       if (settings.additionalText) content += `\n${settings.additionalText}\n`;
     }
 
-    content += `\n-# Podes aportar a la lista usando el comando **/agregar**`;
+    content += `\n> -# Podes aportar a la lista usando el comando **/agregar**`;
     return content;
   };
 
