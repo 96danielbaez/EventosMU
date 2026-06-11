@@ -145,8 +145,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   const embed = new EmbedBuilder()
     .setTitle("📢 PRÓXIMOS EVENTOS")
-    .setColor(0x0099ff) // Color azul para la barra lateral
-    .setTimestamp();
+    .setColor(0x0099ff); // Color azul para la barra lateral
 
   let description = "";
 
@@ -183,6 +182,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   if (settings.additionalText) {
     description += `\n${settings.additionalText}`;
   }
+
+  description += `\n\n-# 🔄 Última actualización: <t:${ahora}:R>`;
 
   embed.setDescription(description);
   embed.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
