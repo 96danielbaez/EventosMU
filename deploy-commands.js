@@ -11,17 +11,20 @@ const commands = [
   new SlashCommandBuilder()
     .setName("canal")
     .setDescription("Define el canal de eventos.")
+    .setDMPermission(false)
     .addChannelOption((option) =>
       option.setName("canal").setDescription("Canal destino").setRequired(true),
     ),
   // COMANDO PARA RESETEAR TODOS LOS EVENTOS
   new SlashCommandBuilder()
     .setName("resetear")
-    .setDescription("Borra todos los eventos con confirmación."),
+    .setDescription("Borra todos los eventos con confirmación.")
+    .setDMPermission(false),
   // COMANDO PARA AGREGAR EVENTOS
   new SlashCommandBuilder()
     .setName("agregar")
     .setDescription("Agregar evento.")
+    .setDMPermission(false)
     .addStringOption((option) =>
       option
         .setName("nombre")
@@ -44,6 +47,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("eliminar")
     .setDescription("Eliminar un evento")
+    .setDMPermission(false)
     .addIntegerOption((option) =>
       option.setName("id").setDescription("ID del evento.").setRequired(true),
     ),
@@ -51,6 +55,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("editar")
     .setDescription("Editar un evento")
+    .setDMPermission(false)
     .addIntegerOption((option) =>
       option.setName("id").setDescription("ID del evento.").setRequired(true),
     )
@@ -76,6 +81,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("permisos")
     .setDescription("Define qué rol puede usar el bot.")
+    .setDMPermission(false)
     .addRoleOption((option) =>
       option
         .setName("rol")
@@ -84,6 +90,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("timezone")
+    .setDMPermission(false)
     .setDescription("Configura el huso horario del servidor.")
     .addIntegerOption((option) =>
       option
@@ -93,6 +100,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("mensaje")
+    .setDMPermission(false)
     .setDescription("Agrega un mensaje debajo de PRÓXIMOS EVENTOS.")
     .addStringOption((option) =>
       option
@@ -103,14 +111,17 @@ const commands = [
   // COMANDO PARA LISTAR USUARIOS EN VOICE
   new SlashCommandBuilder()
     .setName("listar")
+    .setDMPermission(false)
     .setDescription("Lista los usuarios conectados en tu canal de voz."),
   // COMANDO PARA VER LA CONFIGURACIÓN ACTUAL
   new SlashCommandBuilder()
     .setName("configuracion")
+    .setDMPermission(false)
     .setDescription("Muestra la configuración guardada del bot en este servidor."),
   // COMANDO PARA ACTUALIZAR EL MENSAJE MANUALMENTE
   new SlashCommandBuilder()
     .setName("actualizar")
+    .setDMPermission(false)
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
