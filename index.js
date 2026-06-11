@@ -179,11 +179,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const expirado = ahora > e.timestamp;
 
         if (expirado) {
-          // Eventos expirados: todo en una línea y tachado con autor
-          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}> [#${e.id}]~~\n`;
+          // Eventos expirados: línea principal tachada
+          content += `~~⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n`;
+          // Autor en línea separada y pequeña, también tachado
+          content += `-# ~~por <@${e.userId}>~~\n`;
         } else {
-          // Misma línea: Nombre en negrita, horario normal, timestamp en negrita y autor
-          content += `⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) por <@${e.userId}>\n`;
+          // Línea principal
+          content += `⚔️ **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
+          // Autor en línea separada y pequeña
+          content += `-# por <@${e.userId}>\n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
@@ -195,7 +199,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       if (settings.additionalText) content += `\n${settings.additionalText}\n`;
     }
 
-    content += `\n-# Podes mantener actualizada la lista usando /agregar`;
+    content += `\n-# Podes aportar a la lista usando el comando **/agregar**`;
     return content;
   };
 
