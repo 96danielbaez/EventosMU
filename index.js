@@ -75,35 +75,18 @@ async function replyAndDelete(
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
     else if (isConfig) color = 0xffcc00;
-
+    
     const embed = new EmbedBuilder()
       .setDescription(content)
       .setColor(color); 
 
-    const settings = await getSettings(interaction.guild.id);
-    const targetChannelId = settings.channelId;
-    const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
-
     // Si la interacción ya fue diferida o respondida, usamos editReply
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({
-        embeds: [embed],
-      });
+      await interaction.editReply({ embeds: [embed], ephemeral: true });
     } else {
-      await interaction.reply({
-        embeds: [embed],
-      });
-    }
-
-    if (isDifferentChannel) {
-      const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
-      if (targetChannel) {
-        const forwardEmbed = EmbedBuilder.from(embed)
-          .setFooter({ 
-            text: ` Reenviado desde #${interaction.channel.name}` 
-          });
-        await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
-      }
+      // Aunque deferReply ya se encarga de esto, lo mantenemos por si acaso
+      // se llama replyAndDelete sin un defer previo (ej. en un error no capturado antes).
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
@@ -275,24 +258,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
           .setColor(0xff0000); // Rojo para indicar que se borró todo
-        await interaction.editReply({
-          content: null,
-          embeds: [embed],
-          components: [],
-        });
-
-        // Duplicar en el canal configurado si es distinto al actual
-        const targetChannelId = settings.channelId;
-        if (targetChannelId && interaction.channelId !== targetChannelId) {
-          const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
-          if (targetChannel) {
-            const forwardEmbed = EmbedBuilder.from(embed)
-              .setFooter({ 
-                text: ` Reenviado desde #${interaction.channel.name}` 
-              });
-            await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
-          }
-        }
+        await interaction.editReply({ content: null, embeds: [embed], components: [], ephemeral: true });
         return;
       }
 
@@ -300,25 +266,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const embed = new EmbedBuilder()
           .setDescription("❌ CANCELADO")
           .setColor(0xff0000);
-        await interaction.update({
-          content: null,
-          embeds: [embed],
-          components: [],
-        });
-
-        // Duplicar en el canal configurado si es distinto al actual
-        const settings = await getSettings(interaction.guild.id);
-        const targetChannelId = settings.channelId;
-        if (targetChannelId && interaction.channelId !== targetChannelId) {
-          const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
-          if (targetChannel) {
-            const forwardEmbed = EmbedBuilder.from(embed)
-              .setFooter({ 
-                text: ` Reenviado desde #${interaction.channel.name}` 
-              });
-            await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
-          }
-        }
+        await interaction.update({ content: null, embeds: [embed], components: [], ephemeral: true });
         return;
       }
 
@@ -423,11 +371,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const embed = new EmbedBuilder()
         .setDescription("¿ESTÁS SEGURO? •⚠️")
         .setColor(0xffcc00); // Color amarillo para advertencia
-      return interaction.editReply({
-        embeds: [embed],
-        components: [row],
-        ephemeral: true,
-      });
+      return interaction.editReply({ embeds: [embed], components: [row], ephemeral: true });
     }
 
     // ================= /AGREGAR =================
@@ -571,7 +515,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         )
         .setFooter({ text: "Datos guardados en MongoDB" });
 
-      return await interaction.editReply({ embeds: [embed] });
+      return await interaction.editReply({ embeds: [embed], ephemeral: true });
     }
 
     // ================= /MENSAJE =================
@@ -752,7 +696,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const content = "```\n" + lines.join("\n") + "\n```";
 
-      return await interaction.editReply({ content });
+      return await interaction.editReply({ content, ephemeral: true });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
