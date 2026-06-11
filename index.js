@@ -154,7 +154,7 @@ async function actualizarMensaje(client, guildId) {
 
   const buildEmbed = () => {
     const embed = new EmbedBuilder()
-      .setTitle("📌 HORARIOS: BOSSES O EVENTOS")
+      .setTitle("📌 EVENTOS PRÓXIMOS")
       .setColor(eventos.length === 0 ? 0xff0000 : 0x00ae86); // Rojo si está vacío, verde si tiene eventos
 
     if (eventos.length === 0) {
@@ -167,8 +167,6 @@ async function actualizarMensaje(client, guildId) {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
 
-      let desc = `-# LISTADO EN: **HORA SERVER** (UTC ${offset >= 0 ? "+" : ""}${offset}).\n`;
-      desc += "### EVENTOS PRÓXIMOS\n\n";
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
         const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
@@ -178,7 +176,7 @@ async function actualizarMensaje(client, guildId) {
         const expirado = ahora > e.timestamp;
         const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
 
-        desc += expirado
+        let desc = expirado
           ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) *por* ${usuario} [#${e.id}] ~~\n`
           : `**${e.nombre}**: ${hora} **(<t:${e.timestamp}:R>)** *por* ${usuario} [#${e.id}]\n`;
       }
