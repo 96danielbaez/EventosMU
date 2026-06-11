@@ -38,14 +38,17 @@ async function replyAndDelete(
     const embed = new EmbedBuilder()
       .setDescription(content)
       .setColor(color); 
-    await interaction.reply({
-      embeds: [embed],
-    });
 
-    // Duplicar en el canal configurado si el comando se usó en otro chat
     const config = loadConfig();
     const targetChannelId = config[interaction.guild.id]?.channelId;
-    if (targetChannelId && interaction.channelId !== targetChannelId) {
+    const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
+
+    await interaction.reply({
+      embeds: [embed],
+      ephemeral: isDifferentChannel,
+    });
+
+    if (isDifferentChannel) {
       const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
       if (targetChannel) {
         await targetChannel.send({ embeds: [embed] }).catch(() => {});
@@ -421,12 +424,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setStyle(ButtonStyle.Secondary),
       );
 
+      const config = loadConfig();
+      const targetChannelId = config[interaction.guild.id]?.channelId;
+      const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
+
       const embed = new EmbedBuilder()
         .setDescription("¿ESTÁS SEGURO? •⚠️")
         .setColor(0xffcc00); // Color amarillo para advertencia
       return interaction.reply({
         embeds: [embed],
         components: [row],
+        ephemeral: isDifferentChannel,
       });
     }
 
