@@ -158,22 +158,16 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
 
   let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
-  const buildEmbed = () => {
-    const embed = new EmbedBuilder()
-      .setTitle("📌 EVENTOS PRÓXIMOS")
-      .setColor(eventos.length === 0 ? 0xff0000 : 0x00ae86); // Rojo si está vacío, verde si tiene eventos
+  const buildContent = () => {
+    let content = `# 📌 EVENTOS PRÓXIMOS\n\n`;
 
     if (eventos.length === 0) {
-      let desc = "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
-      desc += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (settings.additionalText) desc += `\n${settings.additionalText}\n`;
-      
-      embed.setDescription(desc);
+      content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
+      content += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
+      if (settings.additionalText) content += `\n${settings.additionalText}\n`;
     } else {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
-
-      let eventListDesc = "```\n"; // Inicia un bloque de código multilínea para la lista de eventos
 
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
@@ -183,26 +177,26 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
         const hora = `${horas}:${minutos}`;
         const expirado = ahora > e.timestamp;
 
-        eventListDesc += expirado
-          ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) [#${e.id}]~~\n`
-          : `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
+        if (expirado) {
+          content += `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) [#${e.id}]~~\n`;
+        } else {
+          // Usamos ### para que la letra sea grande. Nota: Esto forzará negrita en toda la línea.
+          content += `### **${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
+        }
       }
-      eventListDesc += "```"; // Cierra el bloque de código multilínea
 
-      let finalDesc = eventListDesc;
-      if (settings.additionalText) finalDesc += `\n${settings.additionalText}\n`; // El texto adicional va fuera del bloque de código
-      embed.setDescription(finalDesc);
+      if (settings.additionalText) content += `\n${settings.additionalText}\n`;
     }
 
     const footerText = settings.lastUpdatedBy 
       ? `Última actualización por: ${settings.lastUpdatedBy}` 
       : "Última actualización";
-    embed.setFooter({ text: footerText });
-    embed.setTimestamp(new Date(ahora * 1000));
-    return embed;
+    
+    content += `\n-# ${footerText} • <t:${ahora}:F>`;
+    return content;
   };
 
-  const embed = buildEmbed();
+  const finalContent = buildContent();
 
   try {
     let msg = settings.messageId
@@ -211,15 +205,7 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
 
     if (msg) await msg.delete().catch(() => {});
 
-    // Creamos botones para el mensaje principal (Opcional, pero útil)
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("refresh_list")
-        .setLabel("Actualizar")
-        .setStyle(ButtonStyle.Secondary),
-    );
-
-    const newMsg = await channel.send({ embeds: [embed] /* components: [row] */ });
+    const newMsg = await channel.send({ content: finalContent });
     settings.messageId = newMsg.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
