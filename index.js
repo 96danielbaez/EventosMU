@@ -83,9 +83,16 @@ async function replyAndDelete(
     const targetChannelId = settings.channelId;
     const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
 
-    await interaction.reply({
-      embeds: [embed],
-    });
+    // Si la interacción ya fue diferida o respondida, usamos editReply
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({
+        embeds: [embed],
+      });
+    } else {
+      await interaction.reply({
+        embeds: [embed],
+      });
+    }
 
     if (isDifferentChannel) {
       const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
@@ -194,7 +201,15 @@ async function actualizarMensaje(client, guildId) {
 
     if (msg) await msg.delete().catch(() => {});
 
-    const newMsg = await channel.send({ embeds: [embed] });
+    // Creamos botones para el mensaje principal (Opcional, pero útil)
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("refresh_list")
+        .setLabel("Actualizar")
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+    const newMsg = await channel.send({ embeds: [embed] /* components: [row] */ });
     settings.messageId = newMsg.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
@@ -310,6 +325,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= COMMAND =================
     const cmd = interaction.commandName;
 
+    // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
+    if (interaction.isChatInputCommand()) {
+      await interaction.deferReply({ ephemeral: true });
+    }
+
     const adminOnly = ["permisos", "canal"];
     const roleProtected = [
       "timezone",
@@ -395,11 +415,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       const targetChannelId = settings.channelId;
       const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
-
+      
       const embed = new EmbedBuilder()
         .setDescription("¿ESTÁS SEGURO? •⚠️")
         .setColor(0xffcc00); // Color amarillo para advertencia
-      return interaction.reply({
+      return interaction.editReply({
         embeds: [embed],
         components: [row],
         ephemeral: true,
@@ -711,7 +731,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const content = "```\n" + lines.join("\n") + "\n```";
 
-      return await interaction.reply({ content, ephemeral: false });
+      return await interaction.editReply({ content });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
