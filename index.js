@@ -189,35 +189,17 @@ async function actualizarMensaje(client, guildId) {
       ? await channel.messages.fetch(currentMsgId).catch(() => null)
       : null;
 
-    if (msg) {
-      await msg.edit(content);
-      console.log(`Mensaje editado para guild=${guildId} messageId=${msg.id}`);
-    } else {
-      // El mensaje fue borrado o no existe, crear uno nuevo
-      msg = await channel.send(content);
-      msgData[guildId] = {
-        id: msg.id,
-        text: typeof guildMsgData === "object" ? guildMsgData.text : undefined,
-      };
-      console.log(`Mensaje creado para guild=${guildId} messageId=${msg.id}`);
-      safeWrite(msgFile, msgData);
-    }
+    if (msg) await msg.delete().catch(() => {});
+
+    const newMsg = await channel.send(content);
+    msgData[guildId] = {
+      id: newMsg.id,
+      text: typeof guildMsgData === "object" ? guildMsgData.text : undefined,
+    };
+    safeWrite(msgFile, msgData);
+    console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
-    // Intentar enviar un nuevo mensaje si hay error
-    try {
-      const msg = await channel.send(content);
-      msgData[guildId] = {
-        id: msg.id,
-        text:
-          typeof msgData[guildId] === "object"
-            ? msgData[guildId].text
-            : undefined,
-      };
-      safeWrite(msgFile, msgData);
-    } catch (err2) {
-      console.error("Error creando nuevo mensaje:", err2);
-    }
   }
 }
 
