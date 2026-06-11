@@ -182,7 +182,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       if (settings.additionalText) content += `\n${settings.additionalText}\n`;
     }
 
-    content += `\n> -# Podes aportar a la lista usando el comando **/agregar**`;
+    content += `\n-# Podes aportar a la lista usando el comando **/agregar**.`;
     return content;
   };
 
