@@ -173,7 +173,7 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
 
-      let desc = "";
+      let eventListDesc = "```\n"; // Inicia un bloque de código multilínea para la lista de eventos
 
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
@@ -182,15 +182,16 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
         const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
         const hora = `${horas}:${minutos}`;
         const expirado = ahora > e.timestamp;
-        const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
 
-        desc += expirado
+        eventListDesc += expirado
           ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) [#${e.id}]~~\n`
           : `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
       }
+      eventListDesc += "```"; // Cierra el bloque de código multilínea
 
-      if (settings.additionalText) desc += `\n${settings.additionalText}\n`;
-      embed.setDescription(desc);
+      let finalDesc = eventListDesc;
+      if (settings.additionalText) finalDesc += `\n${settings.additionalText}\n`; // El texto adicional va fuera del bloque de código
+      embed.setDescription(finalDesc);
     }
 
     const footerText = settings.lastUpdatedBy 
