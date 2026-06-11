@@ -186,7 +186,7 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
 
         desc += expirado
           ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) [#${e.id}]~~\n`
-          : `### **${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
+          : `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n`;
       }
 
       if (settings.additionalText) desc += `\n${settings.additionalText}\n`;
