@@ -451,9 +451,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await actualizarMensaje(interaction.client, interaction.guild.id);
 
+      const infoHorario = fechaTexto ? `${horario} (${fechaTexto})` : horario;
       return await replyAndDelete(
         interaction,
-        `✅ Evento (#${id}) • **${nombre}** • **AGREGADO**`,
+        `✅ Evento (#${id}) • **${nombre}** • **${infoHorario}** • **AGREGADO**`,
       );
     }
 
