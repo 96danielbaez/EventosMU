@@ -169,8 +169,8 @@ async function actualizarMensaje(client, guildId) {
         const usuario = e.userId ? `<@${e.userId}>` : "Desconocido";
 
         desc += expirado
-          ? `~~**${e.nombre}**: ${hora} - (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
-          : `**${e.nombre}**: ${hora} - **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
+          ? `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>) • *por* ${usuario} | [#${e.id}] ~~\n`
+          : `**${e.nombre}**: ${hora} **(<t:${e.timestamp}:R>)** • *por* ${usuario} | [#${e.id}]\n`;
       }
 
       if (additionalText) desc += `\n${additionalText}\n`;
