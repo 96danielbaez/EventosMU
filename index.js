@@ -179,13 +179,11 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const expirado = ahora > e.timestamp;
 
         if (expirado) {
-          // Eventos expirados: todo tachado
-          content += `~~**${e.nombre}**~~\n~~${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n`;
+          // Eventos expirados: todo en una línea y tachado
+          content += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n`;
         } else {
-          // Título: Grande (###) y en negrita (**)
-          content += `### **${e.nombre}**\n`;
-          // Horario: Normal, y Timestamp en negrita (**)
-          content += `${hora} (**<t:${e.timestamp}:R>**)\n`;
+          // Misma línea: Nombre en negrita, horario normal y timestamp en negrita
+          content += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
         }
 
         // Añadir separador entre eventos (excepto después del último)
