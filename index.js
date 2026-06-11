@@ -136,7 +136,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   const ahora = Math.floor(Date.now() / 1000);
-  const CLEANUP_THRESHOLD = 24 * 60 * 60; // segundos
+  const CLEANUP_THRESHOLD = 14 * 24 * 60 * 60; // 14 días en segundos
   
   // Limpiar automáticamente eventos antiguos de la DB
   await EventModel.deleteMany({ guildId, timestamp: { $lt: ahora - CLEANUP_THRESHOLD } });
@@ -222,7 +222,7 @@ client.once(Events.ClientReady, () => {
 });
 
 // ================= ACTUALIZACIÓN PERIÓDICA =================
-const DEFAULT_UPDATE_INTERVAL = 43200; // CADA 12 hs se actualiza el mensaje (en segundos).
+const DEFAULT_UPDATE_INTERVAL = 28800; // CADA 8 hs se actualiza el mensaje (en segundos).
 
 function startAutoUpdate(client) {
   const secs = Math.max(
