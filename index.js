@@ -159,7 +159,7 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
   let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
   const buildContent = () => {
-    let content = `# 📌 EVENTOS PRÓXIMOS\n\n`;
+    let content = `# 📌 EVENTOS PRÓXIMOS\n`;
 
     if (eventos.length === 0) {
       content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
@@ -179,12 +179,12 @@ async function actualizarMensaje(client, guildId, updaterName = null) {
 
         if (expirado) {
           // Eventos expirados: todo tachado
-          content += `~~**${e.nombre}**~~\n~~${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n\n`;
+          content += `~~**${e.nombre}**~~\n~~${hora} (**<t:${e.timestamp}:R>**) [#${e.id}]~~\n`;
         } else {
           // Título: Grande (###) y en negrita (**)
           content += `### **${e.nombre}**\n`;
           // Horario: Normal, y Timestamp en negrita (**)
-          content += `${hora} (**<t:${e.timestamp}:R>**)\n\n`;
+          content += `${hora} (**<t:${e.timestamp}:R>**)\n`;
         }
       }
 
