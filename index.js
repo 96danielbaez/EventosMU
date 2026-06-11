@@ -206,7 +206,11 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
 // ================= CLIENT =================
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds, 
+    GatewayIntentBits.GuildVoiceStates, 
+    GatewayIntentBits.GuildMembers
+  ],
 });
 
 client.once(Events.ClientReady, () => {
@@ -279,8 +283,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const cmd = interaction.commandName;
 
     // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
+    // Si es el comando 'listar', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
-      await interaction.deferReply({ ephemeral: true });
+      const isPublic = cmd === "listar";
+      await interaction.deferReply({ ephemeral: !isPublic });
     }
 
     const adminOnly = ["permisos", "canal"];
@@ -700,8 +706,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const content = "```\n" + lines.join("\n") + "\n```";
 
-      await interaction.editReply({ content, ephemeral: true });
-      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+      return await interaction.editReply({ content });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
