@@ -26,10 +26,18 @@ async function replyAndDelete(
   content
 ) {
   try {
-    const isError = content.includes("❌");
+    // Color rojo para errores, eliminaciones o borrados
+    const isRed = content.includes("❌") || content.includes("ELIMINADO") || content.includes("BORRADO");
+    // Color amarillo para comandos de configuración exitosos
+    const isConfig = ["canal", "permisos", "timezone"].includes(interaction.commandName);
+
+    let color = 0x00ae86; // Verde (éxito por defecto)
+    if (isRed) color = 0xff0000;
+    else if (isConfig) color = 0xffcc00;
+
     const embed = new EmbedBuilder()
       .setDescription(content)
-      .setColor(isError ? 0xff0000 : 0x00ae86); // Rojo si es error, verde si es éxito
+      .setColor(color); 
     await interaction.reply({
       embeds: [embed],
     });
@@ -143,7 +151,7 @@ async function actualizarMensaje(client, guildId) {
 
     const embed = new EmbedBuilder()
       .setTitle("📌 HORARIOS: BOSSES O EVENTOS")
-      .setColor(0x00ae86); // Color del borde (Cian/Verde)
+      .setColor(eventos.length === 0 ? 0xff0000 : 0x00ae86); // Rojo si está vacío, verde si tiene eventos
 
     if (eventos.length === 0) {
       let desc = "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
@@ -272,7 +280,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
-          .setColor(0x00ae86);
+          .setColor(0xff0000); // Rojo para indicar que se borró todo
         return interaction.editReply({
           content: null,
           embeds: [embed],
@@ -365,7 +373,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       config[interaction.guild.id] = { channelId: canal.id };
       saveConfig(config);
 
-      return await replyAndDelete(interaction, "✅ CANAL CONFIGURADO");
+      return await replyAndDelete(interaction, `✅ Canal configurado: <#${canal.id}>`);
     }
 
     // ================= /RESET =================
