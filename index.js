@@ -32,7 +32,6 @@ async function replyAndDelete(
   try {
     const reply = await interaction.reply({
       content,
-      flags: MessageFlags.Ephemeral,
     });
     setTimeout(() => {
       reply.delete().catch(() => {});
@@ -396,7 +395,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({
         content: "¿ESTÁS SEGURO? •⚠️",
         components: [row],
-        flags: MessageFlags.Ephemeral,
       });
     }
 
