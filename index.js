@@ -50,7 +50,11 @@ async function replyAndDelete(
     if (isDifferentChannel) {
       const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
       if (targetChannel) {
-        await targetChannel.send({ embeds: [embed] }).catch(() => {});
+        const forwardEmbed = EmbedBuilder.from(embed)
+          .setFooter({ 
+            text: ` Reenviado desde #${interaction.channel.name}` 
+          });
+        await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
       }
     }
   } catch (err) {
@@ -305,7 +309,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (targetChannelId && interaction.channelId !== targetChannelId) {
           const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
           if (targetChannel) {
-            await targetChannel.send({ embeds: [embed] }).catch(() => {});
+            const forwardEmbed = EmbedBuilder.from(embed)
+              .setFooter({ 
+                text: ` Reenviado desde #${interaction.channel.name}` 
+              });
+            await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
           }
         }
         return;
@@ -327,7 +335,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (targetChannelId && interaction.channelId !== targetChannelId) {
           const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
           if (targetChannel) {
-            await targetChannel.send({ embeds: [embed] }).catch(() => {});
+            const forwardEmbed = EmbedBuilder.from(embed)
+              .setFooter({ 
+                text: ` Reenviado desde #${interaction.channel.name}` 
+              });
+            await targetChannel.send({ embeds: [forwardEmbed] }).catch(() => {});
           }
         }
         return;
