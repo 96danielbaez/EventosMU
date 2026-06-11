@@ -26,8 +26,12 @@ async function replyAndDelete(
   content
 ) {
   try {
+    const isError = content.includes("❌");
+    const embed = new EmbedBuilder()
+      .setDescription(content)
+      .setColor(isError ? 0xff0000 : 0x00ae86); // Rojo si es error, verde si es éxito
     await interaction.reply({
-      content,
+      embeds: [embed],
     });
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
@@ -266,15 +270,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         await actualizarMensaje(interaction.client, interaction.guild.id);
 
+        const embed = new EmbedBuilder()
+          .setDescription("✅ HORARIOS RESETEADOS")
+          .setColor(0x00ae86);
         return interaction.editReply({
-          content: "✅ HORARIOS RESETEADOS",
+          content: null,
+          embeds: [embed],
           components: [],
         });
       }
 
       if (interaction.customId === "cancel_reset") {
+        const embed = new EmbedBuilder()
+          .setDescription("❌ CANCELADO")
+          .setColor(0xff0000);
         return interaction.update({
-          content: "❌ CANCELADO",
+          content: null,
+          embeds: [embed],
           components: [],
         });
       }
@@ -369,8 +381,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setStyle(ButtonStyle.Secondary),
       );
 
+      const embed = new EmbedBuilder()
+        .setDescription("¿ESTÁS SEGURO? •⚠️")
+        .setColor(0xffcc00); // Color amarillo para advertencia
       return interaction.reply({
-        content: "¿ESTÁS SEGURO? •⚠️",
+        embeds: [embed],
         components: [row],
       });
     }
