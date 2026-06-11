@@ -1,5 +1,5 @@
 require("dotenv").config();
-const fs = require("fs");
+const mongoose = require("mongoose");
 const {
   Client,
   GatewayIntentBits,
@@ -11,10 +11,50 @@ const {
   EmbedBuilder,
 } = require("discord.js");
 
-const configFile = "canal.json";
-const tzFile = "timezone.json";
-const eventosFile = "eventos.json";
-const msgFile = "mensaje.json";
+// ================= MONGOOSE MODELS =================
+const SettingsSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  channelId: String,
+  timezone: { type: Number, default: -3 },
+  roleId: String,
+  messageId: String,
+  additionalText: String,
+});
+const Settings = mongoose.model("Settings", SettingsSchema);
+
+const EventSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  id: Number,
+  nombre: String,
+  timestamp: Number,
+  userId: String,
+});
+const EventModel = mongoose.model("Event", EventSchema);
+
+// ================= DATABASE CONNECTION =================
+const dbUrl = process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGODB_URL;
+
+if (!dbUrl) {
+  console.error("❌ ERROR: No se encontró la variable MONGO_URL. Verificá la configuración en Railway.");
+} else {
+  mongoose.connect(dbUrl)
+    .then(() => console.log("✅ Conectado exitosamente a MongoDB (Railway)"))
+    .catch(err => console.error("❌ Error conectando a MongoDB:", err));
+}
+
+// ================= HELPERS DB =================
+async function getSettings(guildId) {
+  let settings = await Settings.findOne({ guildId });
+  if (!settings) {
+    settings = await Settings.create({ guildId });
+  }
+  return settings;
+}
+
+async function getNextEventId(guildId) {
+  const lastEvent = await EventModel.findOne({ guildId }).sort({ id: -1 });
+  return lastEvent ? lastEvent.id + 1 : 1;
+}
 
 // Validaciones de formatos
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm
@@ -39,8 +79,8 @@ async function replyAndDelete(
       .setDescription(content)
       .setColor(color); 
 
-    const config = loadConfig();
-    const targetChannelId = config[interaction.guild.id]?.channelId;
+    const settings = await getSettings(interaction.guild.id);
+    const targetChannelId = settings.channelId;
     const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
 
     await interaction.reply({
@@ -60,34 +100,6 @@ async function replyAndDelete(
   } catch (err) {
     console.error("Error en replyAndDelete:", err);
   }
-}
-
-// ================= HELPERS =================
-function safeRead(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file));
-  } catch {
-    return fallback;
-  }
-}
-
-function safeWrite(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// ================= CONFIG =================
-function loadConfig() {
-  return safeRead(configFile, {});
-}
-function saveConfig(data) {
-  safeWrite(configFile, data);
-}
-
-// ================= TIMEZONE =================
-function getTZ(guildId) {
-  const tz = safeRead(tzFile, {});
-  return tz[guildId] ?? -3;
 }
 
 // ================= TIME HELPERS =================
@@ -112,59 +124,28 @@ function tzComponentsFromTimestamp(timestampSec, offset) {
 }
 
 // ================= PERMISOS =================
-function loadPermisos() {
-  return safeRead("permisos.json", {});
-}
-
-function tienePermiso(interaction) {
-  const permisos = loadPermisos();
-  const roleId = permisos[interaction.guild.id];
-  if (!roleId) return true;
-  return interaction.member.roles.cache.has(roleId);
+async function tienePermiso(interaction) {
+  const settings = await getSettings(interaction.guild.id);
+  if (!settings.roleId) return true;
+  return interaction.member.roles.cache.has(settings.roleId);
 }
 
 // ================= MENSAJE =================
 async function actualizarMensaje(client, guildId) {
-  let eventos = safeRead(eventosFile, []);
-  const config = loadConfig();
+  const settings = await getSettings(guildId);
+  if (!settings.channelId) return;
 
-  const guildConfig = config[guildId];
-  if (!guildConfig?.channelId) return;
-
-  const channel = await client.channels.fetch(guildConfig.channelId);
+  const channel = await client.channels.fetch(settings.channelId);
 
   const ahora = Math.floor(Date.now() / 1000);
-  // No filtrar ni eliminar eventos aquí: queremos que el mensaje muestre
-  // también los horarios pasados (marcados como expirados). La limpieza
-  // de eventos antiguos puede realizarse manualmente con /resetear o
-  // mediante una tarea aparte si se desea.
-
-  console.log(
-    `actualizarMensaje: guild=${guildId} cargados=${eventos.length} eventos, ahora=${ahora}`,
-  );
-
-  // Limpiar eventos mayores a 24 horas (86400 segundos)
   const CLEANUP_THRESHOLD = 24 * 60 * 60; // segundos
-  const beforeCount = eventos.length;
-  const kept = eventos.filter((e) => ahora - e.timestamp < CLEANUP_THRESHOLD);
-  if (kept.length !== beforeCount) {
-    safeWrite(eventosFile, kept);
-    console.log(
-      `actualizarMensaje: eliminado=${beforeCount - kept.length} eventos antiguos para guild=${guildId}`,
-    );
-  }
-  eventos = kept;
+  
+  // Limpiar automáticamente eventos antiguos de la DB
+  await EventModel.deleteMany({ guildId, timestamp: { $lt: ahora - CLEANUP_THRESHOLD } });
 
-  let msgData = safeRead(msgFile, {});
+  let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
   const buildEmbed = () => {
-    const guildMsgData = msgData[guildId];
-    const additionalText = guildMsgData
-      ? typeof guildMsgData === "object"
-        ? guildMsgData.text
-        : undefined
-      : undefined;
-
     const embed = new EmbedBuilder()
       .setTitle("📌 HORARIOS: BOSSES O EVENTOS")
       .setColor(eventos.length === 0 ? 0xff0000 : 0x00ae86); // Rojo si está vacío, verde si tiene eventos
@@ -172,17 +153,15 @@ async function actualizarMensaje(client, guildId) {
     if (eventos.length === 0) {
       let desc = "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
       desc += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (additionalText) desc += `\n${additionalText}\n`;
+      if (settings.additionalText) desc += `\n${settings.additionalText}\n`;
       
       embed.setDescription(desc);
     } else {
-      eventos.sort((a, b) => a.timestamp - b.timestamp);
-      const offset = getTZ(guildId);
+      const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
 
       let desc = `-# LISTADO EN: **HORA SERVER** (UTC ${offset >= 0 ? "+" : ""}${offset}).\n`;
       desc += "### EVENTOS PRÓXIMOS\n\n";
-
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
         const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
@@ -197,7 +176,7 @@ async function actualizarMensaje(client, guildId) {
           : `**${e.nombre}**: ${hora} **(<t:${e.timestamp}:R>)** *por* ${usuario} [#${e.id}]\n`;
       }
 
-      if (additionalText) desc += `\n${additionalText}\n`;
+      if (settings.additionalText) desc += `\n${settings.additionalText}\n`;
       embed.setDescription(desc);
     }
 
@@ -209,25 +188,15 @@ async function actualizarMensaje(client, guildId) {
   const embed = buildEmbed();
 
   try {
-    const guildMsgData = msgData[guildId];
-    const currentMsgId = guildMsgData
-      ? typeof guildMsgData === "object"
-        ? guildMsgData.id
-        : guildMsgData
-      : null;
-
-    let msg = currentMsgId
-      ? await channel.messages.fetch(currentMsgId).catch(() => null)
+    let msg = settings.messageId
+      ? await channel.messages.fetch(settings.messageId).catch(() => null)
       : null;
 
     if (msg) await msg.delete().catch(() => {});
 
     const newMsg = await channel.send({ embeds: [embed] });
-    msgData[guildId] = {
-      id: newMsg.id,
-      text: typeof guildMsgData === "object" ? guildMsgData.text : undefined,
-    };
-    safeWrite(msgFile, msgData);
+    settings.messageId = newMsg.id;
+    await settings.save();
     console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
@@ -257,10 +226,9 @@ function startAutoUpdate(client) {
 
   setInterval(async () => {
     try {
-      const config = loadConfig();
-      const guildIds = Object.keys(config || {});
-      for (const guildId of guildIds) {
-        await actualizarMensaje(client, guildId);
+      const allSettings = await Settings.find({ channelId: { $exists: true } });
+      for (const s of allSettings) {
+        await actualizarMensaje(client, s.guildId);
       }
     } catch (err) {
       console.error("Error en actualización periódica:", err);
@@ -280,18 +248,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId === "confirm_reset") {
         await interaction.deferUpdate();
 
-        safeWrite(eventosFile, []);
-
-        const msgData = safeRead(msgFile, {});
-        const existing = msgData[interaction.guild.id];
-        if (existing) {
-          msgData[interaction.guild.id] =
-            typeof existing === "object"
-              ? { ...existing, text: undefined }
-              : { id: existing };
-          safeWrite(msgFile, msgData);
-        }
-
+        await EventModel.deleteMany({ guildId: interaction.guild.id });
+        const settings = await getSettings(interaction.guild.id);
+        settings.additionalText = undefined;
+        await settings.save();
         await actualizarMensaje(interaction.client, interaction.guild.id);
 
         const embed = new EmbedBuilder()
@@ -304,8 +264,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
 
         // Duplicar en el canal configurado si es distinto al actual
-        const config = loadConfig();
-        const targetChannelId = config[interaction.guild.id]?.channelId;
+        const targetChannelId = settings.channelId;
         if (targetChannelId && interaction.channelId !== targetChannelId) {
           const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
           if (targetChannel) {
@@ -330,8 +289,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
 
         // Duplicar en el canal configurado si es distinto al actual
-        const config = loadConfig();
-        const targetChannelId = config[interaction.guild.id]?.channelId;
+        const settings = await getSettings(interaction.guild.id);
+        const targetChannelId = settings.channelId;
         if (targetChannelId && interaction.channelId !== targetChannelId) {
           const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
           if (targetChannel) {
@@ -377,7 +336,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // ================= ROLE CHECK =================
     if (roleProtected.includes(cmd)) {
-      if (!tienePermiso(interaction)) {
+      if (!(await tienePermiso(interaction))) {
         return await replyAndDelete(
           interaction,
           "❌ No tenés permisos para usar este comando.",
@@ -396,11 +355,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      const permisos = loadPermisos();
-      permisos[interaction.guild.id] = rol.id;
-
-      safeWrite("permisos.json", permisos);
-
+      const settings = await getSettings(interaction.guild.id);
+      settings.roleId = rol.id;
+      await settings.save();
       return await replyAndDelete(
         interaction,
         `✅ Rol autorizado: **${rol.name}**`,
@@ -415,10 +372,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, "❌ Canal inválido.");
       }
 
-      const config = loadConfig();
-      config[interaction.guild.id] = { channelId: canal.id };
-      saveConfig(config);
-
+      const settings = await getSettings(interaction.guild.id);
+      settings.channelId = canal.id;
+      await settings.save();
       return await replyAndDelete(interaction, `✅ Canal configurado: <#${canal.id}>`);
     }
 
@@ -435,8 +391,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setStyle(ButtonStyle.Secondary),
       );
 
-      const config = loadConfig();
-      const targetChannelId = config[interaction.guild.id]?.channelId;
+      const settings = await getSettings(interaction.guild.id);
+      const targetChannelId = settings.channelId;
       const isDifferentChannel = targetChannelId && interaction.channelId !== targetChannelId;
 
       const embed = new EmbedBuilder()
@@ -470,16 +426,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      const config = loadConfig();
-      const guildConfig = config[interaction.guild.id];
-      if (!guildConfig?.channelId) {
+      const settings = await getSettings(interaction.guild.id);
+      if (!settings.channelId) {
         return await replyAndDelete(
           interaction,
           "❌ Primero define el canal de eventos con /canal antes de agregar un evento.",
         );
       }
 
-      const offset = getTZ(interaction.guild.id);
+      const offset = settings.timezone;
       const [h, m] = horario.split(":").map(Number);
 
       // Calcular timestamp en UTC a partir de componentes en TZ
@@ -501,12 +456,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Si no se pasó fecha y ya pasó hoy → mañana
       if (!fechaTexto && timestamp <= nowSec) timestamp += 24 * 60 * 60;
 
-      let eventos = safeRead(eventosFile, []);
-      const id = eventos.length ? Math.max(...eventos.map((e) => e.id)) + 1 : 1;
-
-      eventos.push({ id, nombre, timestamp, userId: interaction.user.id });
-
-      safeWrite(eventosFile, eventos);
+      const id = await getNextEventId(interaction.guild.id);
+      await EventModel.create({
+        guildId: interaction.guild.id,
+        id,
+        nombre,
+        timestamp,
+        userId: interaction.user.id
+      });
 
       await actualizarMensaje(interaction.client, interaction.guild.id);
 
@@ -528,15 +485,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      let eventos = safeRead(eventosFile, []);
+      const result = await EventModel.deleteOne({ guildId: interaction.guild.id, id });
 
-      const newList = eventos.filter((e) => e.id !== id);
-
-      if (newList.length === eventos.length) {
+      if (result.deletedCount === 0) {
         return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
       }
-
-      safeWrite(eventosFile, newList);
 
       await actualizarMensaje(interaction.client, interaction.guild.id);
 
@@ -556,12 +509,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      const data = safeRead(tzFile, {});
-
-      data[interaction.guild.id] = tz;
-
-      safeWrite(tzFile, data);
-
+      const settings = await getSettings(interaction.guild.id);
+      settings.timezone = tz;
+      await settings.save();
       return await replyAndDelete(
         interaction,
         `🌍 Timezone: UTC ${tz >= 0 ? "+" : ""}${tz}`,
@@ -570,20 +520,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /MENSAJE =================
     if (cmd === "mensaje") {
       const texto = interaction.options.getString("mensaje") || "";
-      const msgData = safeRead(msgFile, {});
-      const existing = msgData[interaction.guild.id];
-      const currentId = existing
-        ? typeof existing === "object"
-          ? existing.id
-          : existing
-        : null;
-
-      msgData[interaction.guild.id] = {
-        id: currentId,
-        text: texto || undefined,
-      };
-      safeWrite(msgFile, msgData);
-
+      
+      const settings = await getSettings(interaction.guild.id);
+      settings.additionalText = texto || undefined;
+      await settings.save();
       await actualizarMensaje(interaction.client, interaction.guild.id);
 
       return await replyAndDelete(
@@ -621,9 +561,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      let eventos = safeRead(eventosFile, []);
-
-      const evento = eventos.find((e) => e.id === id);
+      const evento = await EventModel.findOne({ guildId: interaction.guild.id, id });
 
       if (!evento) {
         return await replyAndDelete(interaction, "❌ NO EXISTE");
@@ -641,7 +579,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (horario || fechaTexto) {
         if (horario) changedTime = true;
-          const offset = getTZ(interaction.guild.id);
+          const settings = await getSettings(interaction.guild.id);
+          const offset = settings.timezone;
 
           // Si no se pasa `fecha`, usamos la fecha ACTUAL en la TZ del servidor
           // para que editar sólo el horario aplique al día de hoy (o mañana
@@ -706,14 +645,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         changedDate = true;
       }
 
-      safeWrite(eventosFile, eventos);
-
+      await evento.save();
       await actualizarMensaje(interaction.client, interaction.guild.id);
 
       // Preparar mensaje de confirmación con detalles
       const details = [];
-      const offset2 = getTZ(interaction.guild.id);
-      const offsetMs2 = offset2 * 60 * 60 * 1000;
+      const settings = await getSettings(interaction.guild.id);
+      const offsetMsg = settings.timezone;
+      const offsetMs2 = offsetMsg * 60 * 60 * 1000;
       const newDate = new Date(evento.timestamp * 1000);
       const newDateInTZ = new Date(newDate.getTime() + offsetMs2);
       const dd = String(newDateInTZ.getUTCDate()).padStart(2, "0");
