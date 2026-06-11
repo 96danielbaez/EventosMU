@@ -513,7 +513,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return await replyAndDelete(
         interaction,
-        `🌍 Zona horaria configurada en UTC ${tz >= 0 ? "+" : ""}${tz}`,
+        `🌍 Timezone: UTC ${tz >= 0 ? "+" : ""}${tz}`,
       );
     }
     // ================= /MENSAJE =================
