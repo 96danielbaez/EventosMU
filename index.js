@@ -168,12 +168,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
         if (expirado) {
           // Eventos expirados: línea principal tachada (sin ID)
-          content += `> ~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
+          content += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
           // ID y autor en línea separada y pequeña, también tachado
           content += `> -# ↪ ~~añadido por <@${e.userId}> ∙ [#${e.id}] ~~\n`;
         } else {
           // Línea principal
-          content += `> **${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
+          content += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
           // ID y autor en línea separada y pequeña
           content += `> -# ↪ añadido por <@${e.userId}> ∙ [#${e.id}] \n`;
         }
