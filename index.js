@@ -149,7 +149,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     if (eventos.length === 0) {
       content += "> 😴 **No hay eventos cargados, son puros dormilones.**\n";
       content += "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
-      if (settings.additionalText) content += `\n${settings.additionalText}\n`;
+      if (settings.additionalText) content += `\n> ${settings.additionalText}\n`;
     } else {
       const offset = settings.timezone;
       const offsetMs = offset * 60 * 60 * 1000;
