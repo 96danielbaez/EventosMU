@@ -45,7 +45,6 @@ async function replyAndDelete(
 
     await interaction.reply({
       embeds: [embed],
-      ephemeral: isDifferentChannel,
     });
 
     if (isDifferentChannel) {
@@ -434,7 +433,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({
         embeds: [embed],
         components: [row],
-        ephemeral: isDifferentChannel,
+        ephemeral: true,
       });
     }
 
