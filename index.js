@@ -199,12 +199,29 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         gruposPorDia[diaNombre].push(e);
       }
 
+      const fields = [];
       for (const dia of ORDEN_DIAS) {
         if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          description += `### ${dia} ∙ 📅\n-# ────────────────────\n`;
-          description += gruposPorDia[dia].map(formatearEvento).join("\n") + "\n\n";
+          // Título del día (Ancho completo)
+          fields.push({
+            name: '\u200B',
+            value: `### ${dia} ∙ 📅\n-# ────────────────────`,
+            inline: false
+          });
+
+          const eventosDia = gruposPorDia[dia];
+          const mitad = Math.ceil(eventosDia.length / 2);
+          const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
+          const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
+
+          // Dos columnas para los eventos
+          fields.push(
+            { name: '\u200B', value: col1 || '\u200B', inline: true },
+            { name: '\u200B', value: col2 || '\u200B', inline: true }
+          );
         }
       }
+      embed.addFields(fields);
     }
 
     description += "\u200B"; // Espacio vacío al final
