@@ -201,18 +201,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     for (const dia of ORDEN_DIAS) {
       if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
         const eventosDia = gruposPorDia[dia];
-        
-        // Añadir el nombre del día como un separador horizontal
-        fields.push({ name: `▬▬▬▬▬▬▬ [ 📅 ${dia} ] ▬▬▬▬▬▬▬`, value: "\u200B", inline: false });
 
-        // Dividir los eventos de ese día en dos columnas
         const mitad = Math.ceil(eventosDia.length / 2);
         const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("");
         const col2 = eventosDia.slice(mitad).map(formatearEvento).join("");
 
         fields.push(
-          { name: "\u200B", value: col1 || "\u200B", inline: true },
-          { name: "\u200B", value: col2 || "\u200B", inline: true }
+          { name: `─── [ 📅 ${dia} ] ───`, value: col1 || "\u200B", inline: true },
+          { name: "\u200B", value: col2 || "\u200B", inline: true },
+          { name: "\u200B", value: "\u200B", inline: false }
         );
       }
     }
