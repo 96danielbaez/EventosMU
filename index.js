@@ -161,24 +161,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
   const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
 
-  const formatearInfo = (e) => {
+  const formatearEvento = (e) => {
     const fecha = new Date(e.timestamp * 1000);
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}**\n> -# ${hora}`;
-    return expirado ? `~~${texto}~~` : texto;
-  };
-
-  const formatearLocal = (e) => {
-    const expirado = ahora > e.timestamp;
-    const texto = `-# [#${e.id}]\n> -# <t:${e.timestamp}:t>`; 
-    return expirado ? `~~${texto}~~` : texto;
-  };
-
-  const formatearRelativo = (e) => {
-    const expirado = ahora > e.timestamp;
-    const texto = `\u200B\n> -# <t:${e.timestamp}:R>`;
+    const texto = `**${e.nombre.toUpperCase()}** -# [#${e.id}]\n> -# ${hora} • <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -222,14 +210,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           });
 
           const eventosDia = gruposPorDia[dia];
-          const col1 = eventosDia.map(formatearInfo).join("\n");
-          const col2 = eventosDia.map(formatearLocal).join("\n");
-          const col3 = eventosDia.map(formatearRelativo).join("\n");
+          const contenido = eventosDia.map(formatearEvento).join("\n");
 
           fields.push(
-            { name: '\u200B', value: col1 || '\u200B', inline: true },
-            { name: '\u200B', value: col2 || '\u200B', inline: true },
-            { name: '\u200B', value: col3 || '\u200B', inline: true }
+            { name: '\u200B', value: contenido || '\u200B', inline: false }
           );
         }
       }
