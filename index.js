@@ -172,7 +172,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   const formatearID = (e) => {
     const expirado = ahora > e.timestamp;
-    const texto = `-# [#${e.id}]\n\u200B`; // Mantiene el ID arriba y añade un espacio para alinear con la info de 2 líneas
+    const texto = `\u200B\n-# [#${e.id}]`; // Baja el ID a la segunda línea para alinear con el horario
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -211,7 +211,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           // Título del día (Ancho completo)
           fields.push({
             name: '\u200B',
-            value: `### ${dia} ∙ 📅\n-# ────────────────────`,
+            value: `## **${dia} ∙ 📅**\n-# ────────────────────`,
             inline: false
           });
 
