@@ -381,7 +381,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     // ================= AUTOCOMPLETE =================
     if (interaction.isAutocomplete()) {
-      if (interaction.commandName === "horario") {
+      if (interaction.commandName === "horario" || interaction.commandName === "timezone") {
         const focusedValue = normalizeString(interaction.options.getFocused());
         const filtered = TIMEZONES_LIST.filter(tz => 
           normalizeString(tz.name).includes(focusedValue) || 

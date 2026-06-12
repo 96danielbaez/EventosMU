@@ -98,11 +98,12 @@ const commands = [
     .setName("timezone")
     .setDMPermission(false)
     .setDescription("Configura el huso horario del servidor.")
-    .addIntegerOption((option) =>
+    .addStringOption((option) =>
       option
-        .setName("offset")
-        .setDescription("Ej: -3 Argentina, 0 UTC, -5, +1.")
-        .setRequired(true),
+        .setName("zona")
+        .setDescription("Busca tu ciudad o país para configurar el horario base del servidor.")
+        .setRequired(true)
+        .setAutocomplete(true),
     ),
   new SlashCommandBuilder()
     .setName("mensaje")
