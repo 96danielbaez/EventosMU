@@ -155,76 +155,69 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   // Limpiar automáticamente eventos antiguos de la DB
   await EventModel.deleteMany({ guildId, timestamp: { $lt: ahora - CLEANUP_THRESHOLD } });
 
-  let eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
+  const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
+  const offset = settings.timezone;
+  const offsetMs = offset * 60 * 60 * 1000;
+  const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+  const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
 
-  const embed = new EmbedBuilder()
-    .setTitle("📢 PRÓXIMOS EVENTOS")
-    .setColor(0x0099ff); // Color azul para la barra lateral
+  const formatearEvento = (e) => {
+    const fecha = new Date(e.timestamp * 1000);
+    const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+    const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
+    const expirado = ahora > e.timestamp;
+    const texto = `**${e.nombre}**: ${hora} <t:${e.timestamp}:R>\n> -# ↪ [#${e.id}]`;
+    return expirado ? `~~${texto}~~` : texto;
+  };
 
-  let description = "";
+  const embeds = [];
 
   if (eventos.length === 0) {
-    description = "> 😴 **No hay eventos cargados.**\n" +
-                  "-# Proba con el comando **/agregar** para cargar el primer evento.\n";
+    const emptyEmbed = new EmbedBuilder()
+      .setTitle("📢 PRÓXIMOS EVENTOS")
+      .setColor(0x0099ff)
+      .setDescription(`> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.${settings.additionalText ? `\n\n${settings.additionalText}` : ""}\n\n-# 🔄 Última actualización: <t:${ahora}:R>`)
+      .setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
+    embeds.push(emptyEmbed);
   } else {
-    const offset = settings.timezone;
-    const offsetMs = offset * 60 * 60 * 1000;
-    const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
-    const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
-
     const gruposPorDia = {};
-
-    // Agrupar eventos por día de la semana
     for (const e of eventos) {
       const fecha = new Date(e.timestamp * 1000);
       const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
       const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
-
-      if (!gruposPorDia[diaNombre]) {
-        gruposPorDia[diaNombre] = [];
-      }
+      if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
       gruposPorDia[diaNombre].push(e);
     }
 
-    const fields = [];
+    const diasConEventos = ORDEN_DIAS.filter(d => gruposPorDia[d] && gruposPorDia[d].length > 0);
 
-    const formatearEvento = (e) => {
-      const fecha = new Date(e.timestamp * 1000);
-      const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
-      const expirado = ahora > e.timestamp;
-      const texto = `**${e.nombre}**: ${hora} <t:${e.timestamp}:R>\n> -# ↪ [#${e.id}]`;
-      return expirado ? `~~${texto}~~` : texto;
-    };
+    for (let i = 0; i < diasConEventos.length; i++) {
+      const dia = diasConEventos[i];
+      const eventosDia = gruposPorDia[dia];
+      const embedDia = new EmbedBuilder().setColor(0x0099ff);
 
-    // Recorrer los días en el orden correcto (Lunes a Domingo)
-    for (const dia of ORDEN_DIAS) {
-      if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-        const eventosDia = gruposPorDia[dia];
+      if (i === 0) embedDia.setTitle("📢 PRÓXIMOS EVENTOS");
 
-        const mitad = Math.ceil(eventosDia.length / 2);
-        const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
-        const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
+      const mitad = Math.ceil(eventosDia.length / 2);
+      const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
+      const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
 
-        fields.push(
-          { name: "\u200B", value: `**📅 ${dia}**\n${col1}`, inline: true },
-          { name: "\u200B", value: `\u200B\n${col2 || "\u200B"}`, inline: true },
-          { name: "\u200B", value: "\u200B", inline: true }
-        );
+      let desc = `# 📅 ${dia}\n──────────`;
+      if (i === 0 && settings.additionalText) desc = `${settings.additionalText}\n\n${desc}`;
+      if (i === diasConEventos.length - 1) desc += `\n\n-# 🔄 Última actualización: <t:${ahora}:R>`;
+
+      embedDia.setDescription(desc);
+      embedDia.addFields(
+        { name: "\u200B", value: col1 || "\u200B", inline: true },
+        { name: "\u200B", value: col2 || "\u200B", inline: true }
+      );
+
+      if (i === diasConEventos.length - 1) {
+        embedDia.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
       }
+      embeds.push(embedDia);
     }
-
-    embed.addFields(fields);
   }
-
-  if (settings.additionalText) {
-    description += `\n${settings.additionalText}`;
-  }
-
-  description += `\n-# 🔄 Última actualización: <t:${ahora}:R>`;
-
-  embed.setDescription(description);
-  embed.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
 
   try {
     let msg = settings.messageId
@@ -233,7 +226,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
     if (msg) await msg.delete().catch(() => {});
 
-    const newMsg = await channel.send({ embeds: [embed] });
+    const newMsg = await channel.send({ embeds: embeds });
     settings.messageId = newMsg.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
