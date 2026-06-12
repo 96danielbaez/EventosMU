@@ -166,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> • [#${e.id}]\n> -# <t:${e.timestamp}:R>`;
+    const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> [#${e.id}]`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -185,6 +185,11 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       .setColor(0x0099ff);
 
     let description = "";
+    const proximo = eventos.find(e => e.timestamp > ahora);
+    if (proximo) {
+      description += `evento más reciente en: <t:${proximo.timestamp}:R>\n`;
+    }
+    
     if (settings.additionalText) description += `${settings.additionalText}\n\n`;
 
     if (eventos.length === 0) {
