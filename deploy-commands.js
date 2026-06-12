@@ -130,17 +130,6 @@ const commands = [
     .setName("actualizar")
     .setDMPermission(false)
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
-  // COMANDO PARA CAMBIAR EL COLOR
-  new SlashCommandBuilder()
-    .setName("color")
-    .setDescription("Cambia el color de los embeds (Hexadecimal).")
-    .setDMPermission(false)
-    .addStringOption((option) =>
-      option
-        .setName("hex")
-        .setDescription("Código hexadecimal (ej: #00FFFF o 00FFFF).")
-        .setRequired(true),
-    ),
   // COMANDO PARA VER HORARIOS EN CUALQUIER CANAL
   new SlashCommandBuilder()
     .setName("horarios")

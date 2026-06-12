@@ -103,7 +103,7 @@ async function replyAndDelete(interaction, content) {
 
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
-    else if (isConfig || interaction.commandName === "color") color = 0xffcc00;
+    else if (isConfig) color = 0xffcc00;
 
     const embed = new EmbedBuilder().setDescription(content).setColor(color);
 
@@ -516,7 +516,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal", "timezone", "resetear", "color"];
+    const adminOnly = ["permisos", "canal", "timezone", "resetear"];
     const roleProtected = [
       "agregar",
       "editar",
@@ -622,45 +622,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: true,
       });
       return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
-    }
-
-    // ================= /COLOR =================
-    if (cmd === "color") {
-      const hex = interaction.options.getString("hex");
-      const hexRegex = /^#?([0-9A-F]{3}){1,2}$/i;
-
-      if (!hexRegex.test(hex)) {
-        return await replyAndDelete(
-          interaction,
-          "❌ Formato hexadecimal inválido. Ejemplo: #00FFFF o FF5733",
-        );
-      }
-
-      // Normalizar el hex para que siempre tenga 6 dígitos y el prefijo #
-      let hexValue = hex.startsWith("#") ? hex.slice(1) : hex;
-      if (hexValue.length === 3) {
-        hexValue = hexValue
-          .split("")
-          .map((char) => char + char)
-          .join("");
-      }
-      const finalHex = `#${hexValue.toUpperCase()}`;
-
-      const settings = await getSettings(interaction.guild.id);
-      settings.embedColor = finalHex;
-      await settings.save();
-
-      // Actualizar el mensaje principal para mostrar el nuevo color
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
-
-      return await replyAndDelete(
-        interaction,
-        `🎨 Color de los embeds actualizado a: **${finalHex.toUpperCase()}**`,
-      );
     }
 
     // ================= /AGREGAR =================
@@ -908,7 +869,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             inline: true,
           },
           {
-            name: "🎨 Color de Embed",
+            name: "🎨 Color (Zona)",
             value: `**${settings.embedColor || "#00FFFF"}**`,
             inline: true,
           },
