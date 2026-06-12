@@ -193,7 +193,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     let description = "# 📌 LISTA DE HORARIOS\n";
     const proximo = eventos.find(e => e.timestamp > ahora);
     if (proximo) {
-      description += `**Evento próximo en:** <t:${proximo.timestamp}:R>\n`;
+      description += `**⚔️ Próximo EVENTO/BOSS en:** <t:${proximo.timestamp}:R>\n`;
     }
     
     if (settings.additionalText) description += `${settings.additionalText}\n\n`;
@@ -229,7 +229,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       // Aclaración de la zona horaria al final de la lista
       fields.push({
         name: '\u200B',
-        value: '-# Los días están listados en UTC -3',
+        value: '-# Los días están listados en UTC -3 🇦🇷',
         inline: false
       });
 
