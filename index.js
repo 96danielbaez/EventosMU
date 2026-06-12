@@ -203,6 +203,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       }
     }
 
+    finalText += "\n"; // Añade un espacio vacío al final de toda la lista
+
     const m = await channel.send({ content: finalText });
     settings.messageId = m.id;
     await settings.save();
