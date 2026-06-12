@@ -195,10 +195,13 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       description += `> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.\n`;
     } else {
       const gruposPorDia = {};
+      const latamOffsetMs = -3 * 60 * 60 * 1000; // GMT-3 para LATAM
+
       for (const e of eventos) {
         const fecha = new Date(e.timestamp * 1000);
-        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-        const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
+        // Determinamos el día basándonos en el horario de LATAM (-3)
+        const fechaLatam = new Date(fecha.getTime() + latamOffsetMs);
+        const diaNombre = NOMBRES_DIAS[fechaLatam.getUTCDay()];
         if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
         gruposPorDia[diaNombre].push(e);
       }
