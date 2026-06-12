@@ -823,31 +823,37 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /CONFIGURACION =================
     if (cmd === "configuracion") {
       const settings = await getSettings(interaction.guild.id);
+      
+      // Buscar el nombre amigable y la bandera de la zona configurada
+      const zoneInfo = TIMEZONES_LIST.find(tz => tz.value === settings.ianaZone);
+      const flag = settings.ianaZone ? getFlagEmoji(IANA_TO_COUNTRY_CODE[settings.ianaZone]) : "";
+      const zoneDisplay = zoneInfo ? `${zoneInfo.name} ${flag}` : "Manual";
+
       const embed = new EmbedBuilder()
         .setTitle("⚙️ Configuración Actual")
         .setColor(0x00ae86)
         .addFields(
           {
-            name: "Canal de Eventos",
+            name: "📍 Canal de Eventos",
             value: settings.channelId
               ? `<#${settings.channelId}>`
               : "No configurado",
             inline: true,
           },
           {
-            name: "Timezone (UTC)",
-            value: `${settings.timezone >= 0 ? "+" : ""}${settings.timezone}`,
+            name: "🌍 Zona Horaria",
+            value: `${zoneDisplay} (UTC ${settings.timezone >= 0 ? "+" : ""}${settings.timezone})`,
             inline: true,
           },
           {
-            name: "Rol con Permisos",
+            name: "🛡️ Rol con Permisos",
             value: settings.roleId
               ? `<@&${settings.roleId}>`
               : "Todos (propietario/admin)",
             inline: true,
           },
           {
-            name: "Mensaje Adicional",
+            name: "📝 Mensaje Adicional",
             value: settings.additionalText || "Ninguno",
           },
         )
