@@ -183,7 +183,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const embed = new EmbedBuilder()
       .setColor(0x0099ff);
 
-    let description = "# LISTA DE HORARIOS\n";
+    let description = "# 📌 LISTA DE HORARIOS\n";
     const proximo = eventos.find(e => e.timestamp > ahora);
     if (proximo) {
       description += `Evento próximo en: <t:${proximo.timestamp}:R>\n`;
@@ -210,7 +210,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           
           fields.push({
             name: '\u200B',
-            value: `## **${dia} ∙ 📅**\n-# ────────────────────\n${contenido}`,
+            value: `📅 **${dia} **\n-# ────────────────────\n${contenido}`,
             inline: false
           });
         }
