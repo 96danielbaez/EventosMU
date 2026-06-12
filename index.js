@@ -632,8 +632,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      // Normalizar el hex para que siempre tenga el #
-      const finalHex = hex.startsWith("#") ? hex : `#${hex}`;
+      // Normalizar el hex para que siempre tenga 6 dígitos y el prefijo #
+      let hexValue = hex.startsWith("#") ? hex.slice(1) : hex;
+      if (hexValue.length === 3) {
+        hexValue = hexValue
+          .split("")
+          .map((char) => char + char)
+          .join("");
+      }
+      const finalHex = `#${hexValue.toUpperCase()}`;
 
       const settings = await getSettings(interaction.guild.id);
       settings.embedColor = finalHex;
