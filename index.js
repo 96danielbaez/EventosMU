@@ -170,9 +170,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     return expirado ? `~~${texto}~~` : texto;
   };
 
-  const formatearID = (e) => {
+  const formatearLocal = (e) => {
     const expirado = ahora > e.timestamp;
-    const texto = `-# [#${e.id}]\n> -# <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)`; 
+    const texto = `-# [#${e.id}]\n> -# <t:${e.timestamp}:t>`; 
+    return expirado ? `~~${texto}~~` : texto;
+  };
+
+  const formatearRelativo = (e) => {
+    const expirado = ahora > e.timestamp;
+    const texto = `\u200B\n> -# <t:${e.timestamp}:R>`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -216,12 +222,14 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           });
 
           const eventosDia = gruposPorDia[dia];
-          const infoValue = eventosDia.map(formatearInfo).join("\n");
-          const idValue = eventosDia.map(formatearID).join("\n");
+          const col1 = eventosDia.map(formatearInfo).join("\n");
+          const col2 = eventosDia.map(formatearLocal).join("\n");
+          const col3 = eventosDia.map(formatearRelativo).join("\n");
 
           fields.push(
-            { name: '\u200B', value: infoValue || '\u200B', inline: true },
-            { name: '\u200B', value: idValue || '\u200B', inline: true }
+            { name: '\u200B', value: col1 || '\u200B', inline: true },
+            { name: '\u200B', value: col2 || '\u200B', inline: true },
+            { name: '\u200B', value: col3 || '\u200B', inline: true }
           );
         }
       }
