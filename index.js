@@ -256,7 +256,19 @@ function generarEmbedHorarios(
   ];
 
   const embed = new EmbedBuilder().setColor(embedColor);
+  let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
+  let flagEmoji = "";
+  if (ianaZone) {
+    const zoneInfo = TIMEZONES_LIST.find((tz) => tz.value === ianaZone);
+    if (zoneInfo) locationDisplay = zoneInfo.name;
+    const countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
+    if (countryCode) {
+      flagEmoji = getFlagEmoji(countryCode);
+    }
+  }
+
   let description = "# LISTA DE HORARIOS\n";
+  description += `-# ${flagEmoji} **HORARIO PARA:** ${locationDisplay}.\n`;
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
   if (proximo) {
@@ -302,24 +314,6 @@ function generarEmbedHorarios(
       });
     }
   }
-
-  let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
-  let flagEmoji = "";
-  if (ianaZone) {
-    const zoneInfo = TIMEZONES_LIST.find((tz) => tz.value === ianaZone);
-    if (zoneInfo) locationDisplay = zoneInfo.name;
-
-    const countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
-    if (countryCode) {
-      flagEmoji = getFlagEmoji(countryCode);
-    }
-  }
-
-  fields.push({
-    name: "\u200B",
-    value: `-# ${flagEmoji} **HORARIO PARA:** ${locationDisplay}.`,
-    inline: false,
-  });
 
   embed.addFields(fields);
   embed.setDescription(description);
