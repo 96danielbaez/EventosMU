@@ -169,28 +169,28 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   } else {
     const offset = settings.timezone;
     const offsetMs = offset * 60 * 60 * 1000;
+    const mitad = Math.ceil(eventos.length / 2);
 
-    for (let i = 0; i < eventos.length; i++) {
-      const e = eventos[i];
+    const formatearEvento = (e) => {
       const fecha = new Date(e.timestamp * 1000);
       const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const horas = String(fechaEnTZ.getUTCHours()).padStart(2, "0");
-      const minutos = String(fechaEnTZ.getUTCMinutes()).padStart(2, "0");
-      const hora = `${horas}:${minutos}`;
+      const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
       const expirado = ahora > e.timestamp;
 
       if (expirado) {
-        description += `~~**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)~~\n`;
-        description += `> -# ↪ ~~añadido por <@${e.userId}> ∙ [#${e.id}] ~~\n`;
+        return `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]~~\n`;
       } else {
-        description += `**${e.nombre}**: ${hora} (**<t:${e.timestamp}:R>**)\n`;
-        description += `> -# ↪ añadido por <@${e.userId}> ∙ [#${e.id}] \n`;
+        return `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]\n`;
       }
+    };
 
-      if (i < eventos.length - 1) {
-        description += "───────────────\n"; // Separador visual sutil
-      }
-    }
+    const col1 = eventos.slice(0, mitad).map(formatearEvento).join("──────────\n");
+    const col2 = eventos.slice(mitad).map(formatearEvento).join("──────────\n");
+
+    embed.addFields(
+      { name: "ㅤ", value: col1 || "\u200B", inline: true },
+      { name: "ㅤ", value: col2 || "\u200B", inline: true }
+    );
   }
 
   if (settings.additionalText) {
