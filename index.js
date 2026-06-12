@@ -16,12 +16,12 @@ const SettingsSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   channelId: String,
   timezone: { type: Number, default: 2 },
-  ianaZone: String,
+  ianaZone: { type: String, default: "Europe/Madrid" },
   roleId: String,
   messageId: String,
   additionalText: String,
   lastUpdatedBy: String,
-  embedColor: { type: String, default: "#00FFFF" },
+  embedColor: { type: String, default: "#AA151B" },
 });
 const Settings = mongoose.model("Settings", SettingsSchema);
 
@@ -232,7 +232,7 @@ function generarEmbedHorarios(
   offset,
   additionalText,
   ianaZone = null,
-  embedColor = "#00FFFF",
+  embedColor = "#AA151B",
 ) {
   const ahora = Math.floor(Date.now() / 1000);
   const offsetMs = offset * 60 * 60 * 1000;
@@ -873,7 +873,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           },
           {
             name: "🎨 Color (Zona)",
-            value: `**${settings.embedColor || "#00FFFF"}**`,
+            value: `**${settings.embedColor || "#AA151B"}**`,
             inline: true,
           },
           {
