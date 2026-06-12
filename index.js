@@ -203,8 +203,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       }
     }
 
-    finalText += `\n-# 🔄 Última actualización: <t:${ahora}:R>\n-# Podes aportar a la lista usando el comando /agregar`;
-
     const m = await channel.send({ content: finalText });
     settings.messageId = m.id;
     await settings.save();
