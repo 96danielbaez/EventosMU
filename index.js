@@ -166,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}** -# [#${e.id}]\n> -# ${hora} • <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)`;
+    const texto = `**${e.nombre.toUpperCase()}** -# [#${e.id}]\n> -# ${hora} • <t:${e.timestamp}:t>\n> -# <t:${e.timestamp}:R>`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
