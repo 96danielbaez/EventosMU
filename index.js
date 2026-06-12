@@ -180,11 +180,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   try {
-    let finalText = `# PRÓXIMOS EVENTOS\n`;
-    if (settings.additionalText) finalText += `${settings.additionalText}\n\n`;
+    const embed = new EmbedBuilder()
+      .setTitle("PRÓXIMOS EVENTOS")
+      .setColor(0x0099ff);
+
+    let description = "";
+    if (settings.additionalText) description += `${settings.additionalText}\n\n`;
 
     if (eventos.length === 0) {
-      finalText += `> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.\n`;
+      description += `> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.\n`;
     } else {
       const gruposPorDia = {};
       for (const e of eventos) {
@@ -195,17 +199,31 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         gruposPorDia[diaNombre].push(e);
       }
 
+      const fields = [];
       for (const dia of ORDEN_DIAS) {
         if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          finalText += `## **${dia} ∙ 📅**\n-# ────────────────────\n`;
-          finalText += gruposPorDia[dia].map(formatearEvento).join("\n") + "\n\n";
+          // Título del día (Ancho completo)
+          fields.push({
+            name: '\u200B',
+            value: `## **${dia} ∙ 📅**\n-# ────────────────────`,
+            inline: false
+          });
+
+          const contenido = gruposPorDia[dia].map(formatearEvento).join("\n");
+          
+          fields.push({
+            name: '\u200B',
+            value: contenido || '\u200B',
+            inline: false
+          });
         }
       }
+      embed.addFields(fields);
     }
 
-    finalText += "\n\u200B"; // Espacio vacío al final
+    if (description) embed.setDescription(description);
 
-    const m = await channel.send({ content: finalText });
+    const m = await channel.send({ embeds: [embed] });
     settings.messageId = m.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId}. ID: ${m.id}`);
