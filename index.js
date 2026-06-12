@@ -271,10 +271,11 @@ function generarEmbedHorarios(
   description += `-# ${flagEmoji} **HORARIO PARA:** ${locationDisplay}.\n`;
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
+  const SEPARATOR = "──────────────────────────────"; // ~30 caracteres para mejor cobertura visual
   if (proximo) {
-    description += `────────────────────\n`;
+    description += `-# ${SEPARATOR}\n`;
     description += `** PRÓXIMO EVENTO:** <t:${proximo.timestamp}:R>\n`;
-    description += `────────────────────\n`;
+    description += `-# ${SEPARATOR}\n`;
   }
 
   if (additionalText) description += `${additionalText}\n\n`;
@@ -311,7 +312,7 @@ function generarEmbedHorarios(
 
       fields.push({
         name: "\u200B",
-        value: `📅 **${dia} **\n-# ────────────────────\n${contenido}`,
+        value: `📅 **${dia} **\n-# ${SEPARATOR}\n${contenido}`,
         inline: false,
       });
     }
