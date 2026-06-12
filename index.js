@@ -203,7 +203,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       }
     }
 
-    finalText += "\n\u200B"; // Añade un carácter invisible para forzar el espacio vacío al final y evitar que Discord lo recorte
+    finalText += "\u200B"; // Añade un carácter invisible para forzar el espacio vacío al final y evitar que Discord lo recorte
 
     const m = await channel.send({ content: finalText });
     settings.messageId = m.id;
