@@ -166,13 +166,13 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}**\n> -# ${hora} (<t:${e.timestamp}:R>)`;
+    const texto = `**${e.nombre.toUpperCase()}**\n> -# ${hora}`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
   const formatearID = (e) => {
     const expirado = ahora > e.timestamp;
-    const texto = `\u200B\n-# [#${e.id}]`; // Baja el ID a la segunda línea para alinear con el horario
+    const texto = `-# [#${e.id}]\n-# (<t:${e.timestamp}:R>)`; // ID arriba y timestamp dinámico abajo
     return expirado ? `~~${texto}~~` : texto;
   };
 
