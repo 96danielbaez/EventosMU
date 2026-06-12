@@ -172,7 +172,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   const formatearID = (e) => {
     const expirado = ahora > e.timestamp;
-    const texto = `-# [#${e.id}]\n> -# (<t:${e.timestamp}:R>)`; 
+    const texto = `-# [#${e.id}]\n> -# <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)`; 
     return expirado ? `~~${texto}~~` : texto;
   };
 
