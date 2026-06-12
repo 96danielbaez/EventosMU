@@ -225,6 +225,14 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           });
         }
       }
+
+      // Aclaración de la zona horaria al final de la lista
+      fields.push({
+        name: '\u200B',
+        value: '-# Los días están listados en UTC -3',
+        inline: false
+      });
+
       embed.addFields(fields);
     }
 
