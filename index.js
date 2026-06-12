@@ -280,6 +280,8 @@ function generarEmbedHorarios(
 
   if (additionalText) description += `${additionalText}\n\n`;
 
+  embed.setFooter({ text: "Para listar el horario de su país use /horarios" });
+
   if (eventos.length === 0) {
     description += `> 😴 **No hay eventos cargados.**\n`;
     embed.setDescription(description);
