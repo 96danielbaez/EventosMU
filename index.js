@@ -850,7 +850,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle("⚙️ Configuración Actual")
-        .setColor(0x00ae86)
+        .setColor(settings.embedColor || "#AA151B")
         .addFields(
           {
             name: "📍 Canal de Eventos",
