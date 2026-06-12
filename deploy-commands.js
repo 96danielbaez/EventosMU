@@ -140,9 +140,11 @@ const commands = [
         .setDescription("Ver horarios para un país específico.")
         .setRequired(false)
         .addChoices(
-          { name: "Argentina (UTC-3)", value: "ARG" },
-          { name: "Bolivia/Venezuela/Chile (UTC-4)", value: "VEN" },
-          { name: "Perú/Colombia/Ecuador (UTC-5)", value: "PE" },
+          { name: "Argentina (UTC-3)", value: "AR" },
+          { name: "Bolivia/Venezuela/Chile (UTC-4)", value: "VE" },
+          { name: "Perú/Colombia/Ecuador (UTC-5)", value: "PECOL" },
+          { name: "España (UTC+1)", value: "ES" },
+
         ),
     ),
 ].map((command) => command.toJSON());

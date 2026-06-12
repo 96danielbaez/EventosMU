@@ -145,9 +145,10 @@ async function tienePermiso(interaction) {
 }
 
 const PAISES_OFFSETS = {
-  ARG: -3,
-  VEN: -4,
-  PE: -5,
+  AR: -3,
+  VE: -4,
+  PECOL: -5,
+  ES:+1,
 };
 
 function generarEmbedHorarios(eventos, offset, additionalText) {
