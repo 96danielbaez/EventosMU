@@ -757,19 +757,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (cmd === "timezone") {
       const ianaZoneInput = interaction.options.getString("zona");
 
-      // Buscar en la lista de zonas permitidas para validar lo que el usuario escribió o seleccionó
-      const found = TIMEZONES_LIST.find(
-        (tz) =>
-          tz.value === ianaZoneInput ||
-          normalizeString(tz.name).includes(
-            normalizeString(ianaZoneInput || ""),
-          ),
+      // Buscar en la lista de zonas permitidas (mismo sistema que /horario)
+      const found = TIMEZONES_LIST.find(tz => 
+        tz.value === ianaZoneInput || 
+        normalizeString(tz.name).includes(normalizeString(ianaZoneInput))
       );
 
       if (!found) {
         return await replyAndDelete(
           interaction,
-          "❌ La zona horaria o país ingresado no es válido. Selecciona una opción de la lista.",
+          "❌ La zona horaria o país ingresado no es válido. Por favor, seleccioná una opción de la lista desplegable.",
         );
       }
 
