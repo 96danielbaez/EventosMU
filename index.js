@@ -193,10 +193,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const embed = new EmbedBuilder()
       .setColor(0x0099ff);
 
-    let description = "# 📌 LISTA DE HORARIOS\n";
+    let description = "# LISTA DE HORARIOS\n";
     const proximo = eventos.find(e => e.timestamp > ahora);
     if (proximo) {
-      description += `**⚔️ Próximo EVENTO/BOSS en:** <t:${proximo.timestamp}:R>\n`;
+      description += `**⚔️ EVENTO/BOSS:** <t:${proximo.timestamp}:R>\n`;
     }
     
     if (settings.additionalText) description += `${settings.additionalText}\n\n`;
