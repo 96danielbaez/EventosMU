@@ -166,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre}** -# [#${e.id}]\n> -# ${hora} (<t:${e.timestamp}:R>)`;
+    const texto = `**${e.nombre.toUpperCase()}** -# [#${e.id}]\n> -# ${hora} (<t:${e.timestamp}:R>)`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -477,7 +477,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await EventModel.create({
         guildId: interaction.guild.id,
         id,
-        nombre,
+        nombre: nombre.toUpperCase(),
         timestamp,
         userId: interaction.user.id
       });
@@ -491,7 +491,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         : horario;
       return await replyAndDelete(
         interaction,
-        `✅ Evento (#${id}) • **${nombre}** • **${infoHorario}** • **AGREGADO**`,
+        `✅ Evento (#${id}) • **${nombre.toUpperCase()}** • **${infoHorario}** • **AGREGADO**`,
       );
     }
 
@@ -627,7 +627,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       let changedDate = false;
 
       if (nombre && nombre !== oldName) {
-        evento.nombre = nombre;
+        evento.nombre = nombre.toUpperCase();
         changedName = true;
       }
 
@@ -714,7 +714,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const hh = String(newDateInTZ.getUTCHours()).padStart(2, "0");
       const min = String(newDateInTZ.getUTCMinutes()).padStart(2, "0");
 
-      if (changedName) details.push(`Nuevo nombre: **${evento.nombre}**`);
+      if (changedName) details.push(`Nuevo nombre: **${evento.nombre.toUpperCase()}**`);
       if (changedDate)
         details.push(`Nueva fecha: **${dd}-${mm} ${hh}:${min}**`);
       else if (changedTime) details.push(`Nuevo horario: **${hh}:${min}**`);
