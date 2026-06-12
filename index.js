@@ -21,6 +21,7 @@ const SettingsSchema = new mongoose.Schema({
   messageId: String,
   additionalText: String,
   lastUpdatedBy: String,
+  embedColor: { type: String, default: "#00FFFF" },
 });
 const Settings = mongoose.model("Settings", SettingsSchema);
 
@@ -231,6 +232,7 @@ function generarEmbedHorarios(
   offset,
   additionalText,
   ianaZone = null,
+  embedColor = "#00FFFF",
 ) {
   const ahora = Math.floor(Date.now() / 1000);
   const offsetMs = offset * 60 * 60 * 1000;
@@ -253,7 +255,7 @@ function generarEmbedHorarios(
     "DOMINGO",
   ];
 
-  const embed = new EmbedBuilder().setColor(0x0099ff);
+  const embed = new EmbedBuilder().setColor(embedColor);
   let description = "# LISTA DE HORARIOS\n";
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
@@ -361,6 +363,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       settings.timezone,
       settings.additionalText,
       settings.ianaZone,
+      settings.embedColor,
     );
 
     const m = await channel.send({ embeds: [embed] });
@@ -509,7 +512,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal", "timezone", "resetear"];
+    const adminOnly = ["permisos", "canal", "timezone", "resetear", "color"];
     const roleProtected = [
       "agregar",
       "editar",
@@ -615,6 +618,38 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: true,
       });
       return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    }
+
+    // ================= /COLOR =================
+    if (cmd === "color") {
+      const hex = interaction.options.getString("hex");
+      const hexRegex = /^#?([0-9A-F]{3}){1,2}$/i;
+
+      if (!hexRegex.test(hex)) {
+        return await replyAndDelete(
+          interaction,
+          "❌ Formato hexadecimal inválido. Ejemplo: #00FFFF o FF5733",
+        );
+      }
+
+      // Normalizar el hex para que siempre tenga el #
+      const finalHex = hex.startsWith("#") ? hex : `#${hex}`;
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.embedColor = finalHex;
+      await settings.save();
+
+      // Actualizar el mensaje principal para mostrar el nuevo color
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
+
+      return await replyAndDelete(
+        interaction,
+        `🎨 Color de los embeds actualizado a: **${finalHex.toUpperCase()}**`,
+      );
     }
 
     // ================= /AGREGAR =================
@@ -858,6 +893,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
             value: settings.roleId
               ? `<@&${settings.roleId}>`
               : "Todos (propietario/admin)",
+            inline: true,
+          },
+          {
+            name: "🎨 Color de Embed",
+            value: `**${settings.embedColor || "#00FFFF"}**`,
             inline: true,
           },
           {
@@ -1111,6 +1151,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         offset,
         settings.additionalText,
         validatedZone,
+        settings.embedColor,
       );
       return await interaction.editReply({ embeds: [embed] });
     }
