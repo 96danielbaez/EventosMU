@@ -129,6 +129,22 @@ const commands = [
     .setName("actualizar")
     .setDMPermission(false)
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
+  // COMANDO PARA VER HORARIOS EN CUALQUIER CANAL
+  new SlashCommandBuilder()
+    .setName("horario")
+    .setDMPermission(false)
+    .setDescription("Publica la lista de horarios en este canal ajustada por país.")
+    .addStringOption((option) =>
+      option
+        .setName("pais")
+        .setDescription("Ver horarios para un país específico.")
+        .setRequired(false)
+        .addChoices(
+          { name: "Argentina (UTC-3)", value: "ARG" },
+          { name: "Bolivia/Venezuela/Chile (UTC-4)", value: "VEN" },
+          { name: "Perú/Colombia/Ecuador (UTC-5)", value: "PE" },
+        ),
+    ),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);

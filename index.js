@@ -144,6 +144,76 @@ async function tienePermiso(interaction) {
   return interaction.member.roles.cache.has(settings.roleId);
 }
 
+const PAISES_OFFSETS = {
+  ARG: -3,
+  VEN: -4,
+  PE: -5,
+};
+
+function generarEmbedHorarios(eventos, offset, additionalText) {
+  const ahora = Math.floor(Date.now() / 1000);
+  const offsetMs = offset * 60 * 60 * 1000;
+  const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+  const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
+
+  const embed = new EmbedBuilder().setColor(0x0099ff);
+  let description = "# LISTA DE HORARIOS\n";
+  
+  const proximo = eventos.find(e => e.timestamp > ahora);
+  if (proximo) {
+    description += `**⚔️ EVENTO/BOSS:** <t:${proximo.timestamp}:R>\n`;
+  }
+  
+  if (additionalText) description += `${additionalText}\n\n`;
+
+  if (eventos.length === 0) {
+    description += `> 😴 **No hay eventos cargados.**\n`;
+    embed.setDescription(description);
+    return embed;
+  }
+
+  const gruposPorDia = {};
+  for (const e of eventos) {
+    const fecha = new Date(e.timestamp * 1000);
+    // Agrupamos el día basándonos en el offset solicitado
+    const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+    const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
+    if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
+    gruposPorDia[diaNombre].push(e);
+  }
+
+  const fields = [];
+  for (const dia of ORDEN_DIAS) {
+    if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
+      const contenido = gruposPorDia[dia].map(e => {
+        const fecha = new Date(e.timestamp * 1000);
+        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+        const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
+        const expirado = ahora > e.timestamp;
+        const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> [#${e.id}]`;
+        return expirado ? `~~${texto}~~` : texto;
+      }).join("\n");
+      
+      fields.push({
+        name: '\u200B',
+        value: `📅 **${dia} **\n-# ────────────────────\n${contenido}`,
+        inline: false
+      });
+    }
+  }
+
+  const sign = offset >= 0 ? "+" : "";
+  fields.push({
+    name: '\u200B',
+    value: `-# Mostrando horarios en UTC ${sign}${offset}`,
+    inline: false
+  });
+
+  embed.addFields(fields);
+  embed.setDescription(description);
+  return embed;
+}
+
 // Control de temporizadores por servidor
 const guildsTimeouts = new Map();
 
@@ -166,19 +236,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   await EventModel.deleteMany({ guildId, timestamp: { $lt: ahora - CLEANUP_THRESHOLD } });
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
-  const offset = settings.timezone;
-  const offsetMs = offset * 60 * 60 * 1000;
-  const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
-  const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
-
-  const formatearEvento = (e) => {
-    const fecha = new Date(e.timestamp * 1000);
-    const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-    const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
-    const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> [#${e.id}]`;
-    return expirado ? `~~${texto}~~` : texto;
-  };
 
   // Limpiar mensajes anteriores (pueden ser múltiples IDs separados por coma)
   if (settings.messageId) {
@@ -190,56 +247,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   try {
-    const embed = new EmbedBuilder()
-      .setColor(0x0099ff);
-
-    let description = "# LISTA DE HORARIOS\n";
-    const proximo = eventos.find(e => e.timestamp > ahora);
-    if (proximo) {
-      description += `**⚔️ EVENTO/BOSS:** <t:${proximo.timestamp}:R>\n`;
-    }
-    
-    if (settings.additionalText) description += `${settings.additionalText}\n\n`;
-
-    if (eventos.length === 0) {
-      description += `> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.\n`;
-    } else {
-      const gruposPorDia = {};
-      const latamOffsetMs = -3 * 60 * 60 * 1000; // GMT-3 para LATAM
-
-      for (const e of eventos) {
-        const fecha = new Date(e.timestamp * 1000);
-        // Determinamos el día basándonos en el horario de LATAM (-3)
-        const fechaLatam = new Date(fecha.getTime() + latamOffsetMs);
-        const diaNombre = NOMBRES_DIAS[fechaLatam.getUTCDay()];
-        if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
-        gruposPorDia[diaNombre].push(e);
-      }
-
-      const fields = [];
-      for (const dia of ORDEN_DIAS) {
-        if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          const contenido = gruposPorDia[dia].map(formatearEvento).join("\n");
-          
-          fields.push({
-            name: '\u200B',
-            value: `📅 **${dia} **\n-# ────────────────────\n${contenido}`,
-            inline: false
-          });
-        }
-      }
-
-      // Aclaración de la zona horaria al final de la lista
-      fields.push({
-        name: '\u200B',
-        value: '-# Los días están listados en UTC -3 🇦🇷',
-        inline: false
-      });
-
-      embed.addFields(fields);
-    }
-
-    if (description) embed.setDescription(description);
+    const embed = generarEmbedHorarios(eventos, settings.timezone, settings.additionalText);
 
     const m = await channel.send({ embeds: [embed] });
     settings.messageId = m.id;
@@ -342,17 +350,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
     // Si es el comando 'listar', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
-      const isPublic = cmd === "listar";
+      const isPublic = ["listar", "horario"].includes(cmd);
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal"];
+    const adminOnly = ["permisos", "canal", "timezone", "resetear"];
     const roleProtected = [
-      "timezone",
       "agregar",
       "editar",
       "eliminar",
-      "resetear",
       "actualizar",
       "configuracion",
     ];
@@ -798,6 +804,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const content = "```\n" + lines.join("\n") + "\n```";
 
       return await interaction.editReply({ content });
+    }
+
+    // ================= /HORARIO =================
+    if (cmd === "horario") {
+      const settings = await getSettings(interaction.guild.id);
+      const pais = interaction.options.getString("pais");
+      
+      const offset = pais && PAISES_OFFSETS[pais] !== undefined ? PAISES_OFFSETS[pais] : settings.timezone;
+      const eventos = await EventModel.find({ guildId: interaction.guild.id }).sort({ timestamp: 1 });
+      
+      const embed = generarEmbedHorarios(eventos, offset, settings.additionalText);
+      return await interaction.editReply({ embeds: [embed] });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
