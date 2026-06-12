@@ -313,7 +313,7 @@ function generarEmbedHorarios(
   const sign = offset >= 0 ? "+" : "";
   fields.push({
     name: "\u200B",
-    value: `-# Mostrando horarios en UTC ${sign}${offset} ${flagEmoji}`,
+    value: `-# ${flagEmoji} **LISTADO EN:** UTC ${sign}${offset}.`,
     inline: false,
   });
 
