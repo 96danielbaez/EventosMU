@@ -213,7 +213,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
         const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
 
-        let desc = `## 📅 ${dia}\n──────────`;
+        let desc = `## 📅 ${dia}`;
         if (i === 0 && settings.additionalText) desc = `${settings.additionalText}\n\n${desc}`;
 
         if (i === diasConEventos.length - 1) {
