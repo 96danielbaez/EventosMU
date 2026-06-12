@@ -180,7 +180,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   try {
-    let finalText = `## PRÓXIMOS EVENTOS \n`;
+    let finalText = `## PRÓXIMOS EVENTOS\n-# ────────────────────\n`;
     if (settings.additionalText) finalText += `${settings.additionalText}\n\n`;
 
     if (eventos.length === 0) {
