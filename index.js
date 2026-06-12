@@ -342,12 +342,16 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   const ahora = Math.floor(Date.now() / 1000);
-  const CLEANUP_THRESHOLD = 14 * 24 * 60 * 60; // 14 días en segundos
+  const offset = settings.timezone;
+  const nowTz = tzComponentsFromTimestamp(ahora, offset);
 
-  // Limpiar automáticamente eventos antiguos de la DB
+  // Calcular el inicio del día actual (00:00) en la zona horaria del servidor
+  const inicioDelDiaTz = tzTimestampFromComponents(nowTz.year, nowTz.month, nowTz.day, 0, 0, offset);
+
+  // Limpiar automáticamente eventos de días anteriores (que ya terminaron el día anterior)
   await EventModel.deleteMany({
     guildId,
-    timestamp: { $lt: ahora - CLEANUP_THRESHOLD },
+    timestamp: { $lt: inicioDelDiaTz },
   });
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
@@ -381,22 +385,22 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       clearTimeout(guildsTimeouts.get(guildId));
     }
 
-    // Buscamos el próximo evento que aún no ha ocurrido
+    // Buscamos el próximo hito de actualización: el próximo evento O la medianoche local
     const proximoEvento = eventos.find((e) => e.timestamp > ahora);
-    if (proximoEvento) {
-      // Calculamos el retraso en ms (agregamos 2 segundos de margen para asegurar que el tiempo ya pasó)
-      const delay = (proximoEvento.timestamp - ahora) * 1000 + 2000;
+    const proximaMedianocheTz = tzTimestampFromComponents(nowTz.year, nowTz.month, nowTz.day + 1, 0, 0, offset);
 
-      // Capamos el delay a 24hs para evitar problemas con el límite de 32 bits de setTimeout
-      const MAX_DELAY = 24 * 60 * 60 * 1000;
-      const finalDelay = Math.min(delay, MAX_DELAY);
+    // El bot se actualizará en el próximo evento o al cambio de día, lo que ocurra primero
+    const proximoUpdate = proximoEvento ? Math.min(proximoEvento.timestamp, proximaMedianocheTz) : proximaMedianocheTz;
 
-      const timer = setTimeout(
-        () => actualizarMensaje(client, guildId),
-        finalDelay,
-      );
-      guildsTimeouts.set(guildId, timer);
-    }
+    const delay = (proximoUpdate - ahora) * 1000 + 2000;
+    const MAX_DELAY = 24 * 60 * 60 * 1000;
+    const finalDelay = Math.max(0, Math.min(delay, MAX_DELAY));
+
+    const timer = setTimeout(
+      () => actualizarMensaje(client, guildId),
+      finalDelay,
+    );
+    guildsTimeouts.set(guildId, timer);
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
   }
