@@ -97,13 +97,13 @@ async function replyAndDelete(interaction, content) {
       content.includes("BORRADO");
     // Color amarillo para comandos de configuración exitosos
     const isConfig = ["canal", "permisos", "timezone"].includes(
-      interaction.commandName,
+      interaction.commandName || "",
     );
-    const isPublic = interaction.commandName === "listar";
+    const isPublic = ["listar", "horarios"].includes(interaction.commandName || "");
 
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
-    else if (isConfig) color = 0xffcc00;
+    else if (isConfig || interaction.commandName === "color") color = 0xffcc00;
 
     const embed = new EmbedBuilder().setDescription(content).setColor(color);
 
@@ -115,8 +115,8 @@ async function replyAndDelete(interaction, content) {
       // se llama replyAndDelete sin un defer previo (ej. en un error no capturado antes).
       await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
     }
-    // Borrar mensaje solo si es efímero (no para /listar)
-    if (!isPublic) {
+    // Borrar mensaje si no es público o si es un mensaje de error/eliminación
+    if (!isPublic || isRed) {
       setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
   } catch (err) {
