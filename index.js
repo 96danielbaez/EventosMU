@@ -154,23 +154,23 @@ async function tienePermiso(interaction) {
 
 // Lista de zonas horarias comunes para el autocompletado
 const TIMEZONES_LIST = [
-  { name: "Argentina (Buenos Aires)", value: "America/Argentina/Buenos_Aires" },
-  { name: "Bolivia (La Paz)", value: "America/La_Paz" },
-  { name: "Brasil (São Paulo)", value: "America/Sao_Paulo" },
-  { name: "Chile (Santiago)", value: "America/Santiago" },
-  { name: "Colombia (Bogotá)", value: "America/Bogota" },
-  { name: "Costa Rica", value: "America/Costa_Rica" },
-  { name: "Ecuador (Guayaquil)", value: "America/Guayaquil" },
-  { name: "España (Madrid)", value: "Europe/Madrid" },
-  { name: "España (Islas Canarias)", value: "Atlantic/Canary" },
-  { name: "México (CDMX)", value: "America/Mexico_City" },
-  { name: "México (Tijuana)", value: "America/Tijuana" },
-  { name: "Paraguay (Asunción)", value: "America/Asuncion" },
-  { name: "Perú (Lima)", value: "America/Lima" },
-  { name: "Uruguay (Montevideo)", value: "America/Montevideo" },
-  { name: "Venezuela (Caracas)", value: "America/Caracas" },
-  { name: "USA (New York - Este)", value: "America/New_York" },
-  { name: "USA (Los Angeles - Oeste)", value: "America/Los_Angeles" },
+  { name: "Argentina (Buenos Aires)", value: "America/Argentina/Buenos_Aires", color: "#74ACDF" },
+  { name: "Bolivia (La Paz)", value: "America/La_Paz", color: "#007934" },
+  { name: "Brasil (São Paulo)", value: "America/Sao_Paulo", color: "#009739" },
+  { name: "Chile (Santiago)", value: "America/Santiago", color: "#0039A6" },
+  { name: "Colombia (Bogotá)", value: "America/Bogota", color: "#FCD116" },
+  { name: "Costa Rica", value: "America/Costa_Rica", color: "#EF1C27" },
+  { name: "Ecuador (Guayaquil)", value: "America/Guayaquil", color: "#FFD700" },
+  { name: "España (Madrid)", value: "Europe/Madrid", color: "#AA151B" },
+  { name: "España (Islas Canarias)", value: "Atlantic/Canary", color: "#F9D616" },
+  { name: "México (CDMX)", value: "America/Mexico_City", color: "#006847" },
+  { name: "México (Tijuana)", value: "America/Tijuana", color: "#006847" },
+  { name: "Paraguay (Asunción)", value: "America/Asuncion", color: "#D52B1E" },
+  { name: "Perú (Lima)", value: "America/Lima", color: "#D91023" },
+  { name: "Uruguay (Montevideo)", value: "America/Montevideo", color: "#0038A8" },
+  { name: "Venezuela (Caracas)", value: "America/Caracas", color: "#F2D500" },
+  { name: "USA (New York - Este)", value: "America/New_York", color: "#B22234" },
+  { name: "USA (Los Angeles - Oeste)", value: "America/Los_Angeles", color: "#3C3B6E" },
 ];
 
 // Mapping from IANA timezone to ISO 3166-1 alpha-2 country code for flags
@@ -837,6 +837,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.timezone = calculatedOffset;
       settings.ianaZone = found.value;
+      if (found.color) settings.embedColor = found.color;
       await settings.save();
 
       // Actualizar el mensaje principal automáticamente
@@ -1132,6 +1133,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       let offset = settings.timezone;
       let validatedZone = settings.ianaZone;
+      let displayColor = settings.embedColor;
 
       if (ianaZoneInput) {
         // Intentamos buscar el país en nuestra lista (por valor IANA o por nombre normalizado)
@@ -1151,6 +1153,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         validatedZone = found.value;
         const calculatedOffset = getOffsetHours(validatedZone);
         if (calculatedOffset !== null) offset = calculatedOffset;
+        if (found.color) displayColor = found.color;
       }
 
       const eventos = await EventModel.find({
@@ -1162,7 +1165,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         offset,
         settings.additionalText,
         validatedZone,
-        settings.embedColor,
+        displayColor,
       );
       return await interaction.editReply({ embeds: [embed] });
     }
