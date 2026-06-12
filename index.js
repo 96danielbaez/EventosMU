@@ -303,17 +303,21 @@ function generarEmbedHorarios(
     }
   }
 
+  let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
   let flagEmoji = "";
   if (ianaZone) {
+    const zoneInfo = TIMEZONES_LIST.find((tz) => tz.value === ianaZone);
+    if (zoneInfo) locationDisplay = zoneInfo.name;
+
     const countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
     if (countryCode) {
       flagEmoji = getFlagEmoji(countryCode);
     }
   }
-  const sign = offset >= 0 ? "+" : "";
+
   fields.push({
     name: "\u200B",
-    value: `-# ${flagEmoji} **LISTADO EN:** UTC ${sign}${offset}.`,
+    value: `-# ${flagEmoji} **HORARIO PARA:** ${locationDisplay}.`,
     inline: false,
   });
 
