@@ -165,6 +165,34 @@ const TIMEZONES_LIST = [
   { name: "USA (Los Angeles - Oeste)", value: "America/Los_Angeles" },
 ];
 
+// Mapping from IANA timezone to ISO 3166-1 alpha-2 country code for flags
+const IANA_TO_COUNTRY_CODE = {
+  "America/Argentina/Buenos_Aires": "AR",
+  "America/La_Paz": "BO",
+  "America/Sao_Paulo": "BR",
+  "America/Santiago": "CL",
+  "America/Bogota": "CO",
+  "America/Costa_Rica": "CR",
+  "America/Guayaquil": "EC",
+  "Europe/Madrid": "ES",
+  "Atlantic/Canary": "ES", // Canary Islands are part of Spain
+  "America/Mexico_City": "MX",
+  "America/Tijuana": "MX",
+  "America/Asuncion": "PY",
+  "America/Lima": "PE",
+  "America/Montevideo": "UY",
+  "America/Caracas": "VE",
+  "America/New_York": "US",
+  "America/Los_Angeles": "US",
+};
+
+// Helper function to get flag emoji from ISO 3166-1 alpha-2 country code
+function getFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const codePoints = countryCode.toUpperCase().split('').map(char => 0x1F1E6 + (char.charCodeAt(0) - 'A'.charCodeAt(0)));
+  return String.fromCodePoint(...codePoints);
+}
+
 function getOffsetHours(ianaZone) {
   try {
     const now = new Date();
@@ -176,7 +204,7 @@ function getOffsetHours(ianaZone) {
   }
 }
 
-function generarEmbedHorarios(eventos, offset, additionalText) {
+function generarEmbedHorarios(eventos, offset, additionalText, ianaZone = null) {
   const ahora = Math.floor(Date.now() / 1000);
   const offsetMs = offset * 60 * 60 * 1000;
   const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
@@ -228,10 +256,17 @@ function generarEmbedHorarios(eventos, offset, additionalText) {
     }
   }
 
+  let flagEmoji = '';
+  if (ianaZone) {
+    const countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
+    if (countryCode) {
+      flagEmoji = getFlagEmoji(countryCode);
+    }
+  }
   const sign = offset >= 0 ? "+" : "";
   fields.push({
     name: '\u200B',
-    value: `-# Mostrando horarios en UTC ${sign}${offset}`,
+    value: `-# Mostrando horarios en UTC ${sign}${offset} ${flagEmoji}`,
     inline: false
   });
 
@@ -863,7 +898,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const eventos = await EventModel.find({ guildId: interaction.guild.id }).sort({ timestamp: 1 });
       
-      const embed = generarEmbedHorarios(eventos, offset, settings.additionalText);
+      const embed = generarEmbedHorarios(eventos, offset, settings.additionalText, ianaZone);
       return await interaction.editReply({ embeds: [embed] });
     }
   } catch (err) {
