@@ -574,6 +574,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.channelId = canal.id;
       await settings.save();
+
+      // Actualizar el mensaje principal automáticamente al cambiar el canal
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
+
       return await replyAndDelete(
         interaction,
         `✅ Canal configurado: <#${canal.id}>`,
