@@ -272,7 +272,7 @@ function generarEmbedHorarios(
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
   if (proximo) {
-    description += `\n -# ────────────────────\n`;
+    description += `-# \n────────────────────\n`;
     description += `** PRÓXIMO EVENTO:** <t:${proximo.timestamp}:R>\n`;
     description += `-# ────────────────────\n`;
   }
