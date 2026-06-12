@@ -16,6 +16,7 @@ const SettingsSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   channelId: String,
   timezone: { type: Number, default: 2 },
+  ianaZone: String,
   roleId: String,
   messageId: String,
   additionalText: String,
@@ -359,6 +360,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       eventos,
       settings.timezone,
       settings.additionalText,
+      settings.ianaZone,
     );
 
     const m = await channel.send({ embeds: [embed] });
@@ -780,7 +782,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const settings = await getSettings(interaction.guild.id);
       settings.timezone = calculatedOffset;
+      settings.ianaZone = found.value;
       await settings.save();
+
+      // Actualizar el mensaje principal automáticamente
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
       return await replyAndDelete(
