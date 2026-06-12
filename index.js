@@ -166,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> • [#${e.id}]`;
+    const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> [#${e.id}]`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -181,13 +181,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   try {
     const embed = new EmbedBuilder()
-      .setTitle("LISTA DE HORARIOS")
       .setColor(0x0099ff);
 
-    let description = "";
+    let description = "# PRÓXIMOS EVENTOS\n";
     const proximo = eventos.find(e => e.timestamp > ahora);
     if (proximo) {
-      description += `EVENTO PRÓXIMO EN: <t:${proximo.timestamp}:R>\n`;
+      description += `evento más reciente en: <t:${proximo.timestamp}:R>\n`;
     }
     
     if (settings.additionalText) description += `${settings.additionalText}\n\n`;
