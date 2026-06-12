@@ -99,7 +99,7 @@ async function replyAndDelete(interaction, content) {
     const isConfig = ["canal", "permisos", "timezone"].includes(
       interaction.commandName || "",
     );
-    const isPublic = ["listar", "horarios"].includes(interaction.commandName || "");
+    const isPublic = ["listar"].includes(interaction.commandName || "");
 
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
@@ -515,7 +515,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
     // Si es el comando 'listar', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
-      const isPublic = ["listar", "horarios"].includes(cmd);
+      const isPublic = ["listar"].includes(cmd);
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
