@@ -202,18 +202,11 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       const fields = [];
       for (const dia of ORDEN_DIAS) {
         if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          // Título del día (Ancho completo)
-          fields.push({
-            name: '\u200B',
-            value: `## **${dia} ∙ 📅**\n-# ────────────────────`,
-            inline: false
-          });
-
           const contenido = gruposPorDia[dia].map(formatearEvento).join("\n");
           
           fields.push({
             name: '\u200B',
-            value: contenido || '\u200B',
+            value: `## **${dia} ∙ 📅**\n-# ────────────────────\n${contenido}`,
             inline: false
           });
         }
