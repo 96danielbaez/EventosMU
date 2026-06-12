@@ -180,7 +180,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   try {
-    let finalText = `## PRÓXIMOS EVENTOS\n-# ────────────────────\n`;
+    let finalText = `## PRÓXIMOS EVENTOS\n`;
     if (settings.additionalText) finalText += `${settings.additionalText}\n\n`;
 
     if (eventos.length === 0) {
@@ -197,7 +197,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
       for (const dia of ORDEN_DIAS) {
         if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          finalText += `### ${dia} ∙ 📅\n`;
+          finalText += `### ${dia} ∙ 📅\n-# ────────────────────\n`;
           finalText += gruposPorDia[dia].map(formatearEvento).join("\n") + "\n\n";
         }
       }
