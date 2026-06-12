@@ -169,37 +169,53 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   } else {
     const offset = settings.timezone;
     const offsetMs = offset * 60 * 60 * 1000;
-    const DIAS_SEMANA = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+    const NOMBRES_DIAS = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
+    const ORDEN_DIAS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
 
     const gruposPorDia = {};
-    const ordenDias = [];
 
     // Agrupar eventos por día de la semana
     for (const e of eventos) {
       const fecha = new Date(e.timestamp * 1000);
       const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const diaNombre = DIAS_SEMANA[fechaEnTZ.getUTCDay()];
+      const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
 
       if (!gruposPorDia[diaNombre]) {
         gruposPorDia[diaNombre] = [];
-        ordenDias.push(diaNombre);
       }
       gruposPorDia[diaNombre].push(e);
     }
 
-    // Crear un field por cada día que tenga eventos
-    const fields = ordenDias.map(dia => {
-      const contenido = gruposPorDia[dia].map(e => {
-        const fecha = new Date(e.timestamp * 1000);
-        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-        const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
-        const expirado = ahora > e.timestamp;
-        const texto = `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]`;
-        return expirado ? `~~${texto}~~` : texto;
-      }).join("\n");
+    const fields = [];
 
-      return { name: `📅 ${dia}`, value: contenido || "\u200B", inline: true };
-    });
+    const formatearEvento = (e) => {
+      const fecha = new Date(e.timestamp * 1000);
+      const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+      const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
+      const expirado = ahora > e.timestamp;
+      const texto = `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]\n`;
+      return expirado ? `~~${texto}~~` : texto;
+    };
+
+    // Recorrer los días en el orden correcto (Lunes a Domingo)
+    for (const dia of ORDEN_DIAS) {
+      if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
+        const eventosDia = gruposPorDia[dia];
+        
+        // Añadir el nombre del día como un separador horizontal
+        fields.push({ name: `▬▬▬▬▬▬▬ [ 📅 ${dia} ] ▬▬▬▬▬▬▬`, value: "\u200B", inline: false });
+
+        // Dividir los eventos de ese día en dos columnas
+        const mitad = Math.ceil(eventosDia.length / 2);
+        const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("");
+        const col2 = eventosDia.slice(mitad).map(formatearEvento).join("");
+
+        fields.push(
+          { name: "\u200B", value: col1 || "\u200B", inline: true },
+          { name: "\u200B", value: col2 || "\u200B", inline: true }
+        );
+      }
+    }
 
     embed.addFields(fields);
   }
