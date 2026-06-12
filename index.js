@@ -53,8 +53,15 @@ async function getSettings(guildId) {
 }
 
 async function getNextEventId(guildId) {
-  const lastEvent = await EventModel.findOne({ guildId }).sort({ id: -1 });
-  return lastEvent ? lastEvent.id + 1 : 1;
+  const events = await EventModel.find({ guildId }).select("id").sort({ id: 1 });
+  const ids = events.map(e => e.id);
+  
+  let nextId = 1;
+  for (const id of ids) {
+    if (id === nextId) nextId++;
+    else if (id > nextId) break;
+  }
+  return nextId;
 }
 
 // Validaciones de formatos
@@ -186,7 +193,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     let description = "# 📌 LISTA DE HORARIOS\n";
     const proximo = eventos.find(e => e.timestamp > ahora);
     if (proximo) {
-      description += `Evento próximo en: <t:${proximo.timestamp}:R>\n`;
+      description += `Evento más reciente en: <t:${proximo.timestamp}:R>\n`;
     }
     
     if (settings.additionalText) description += `${settings.additionalText}\n\n`;
