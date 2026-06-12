@@ -184,8 +184,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       }
     };
 
-    const col1 = eventos.slice(0, mitad).map(formatearEvento).join("──────────\n");
-    const col2 = eventos.slice(mitad).map(formatearEvento).join("──────────\n");
+    const col1 = eventos.slice(0, mitad).map(formatearEvento).join("");
+    const col2 = eventos.slice(mitad).map(formatearEvento).join("");
 
     embed.addFields(
       { name: "ㅤ", value: col1 || "\u200B", inline: true },
