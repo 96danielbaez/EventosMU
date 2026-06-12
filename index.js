@@ -170,66 +170,77 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     return expirado ? `~~${texto}~~` : texto;
   };
 
-  const embeds = [];
-
-  if (eventos.length === 0) {
-    const emptyEmbed = new EmbedBuilder()
-      .setTitle("📢 PRÓXIMOS EVENTOS")
-      .setColor(0x0099ff)
-      .setDescription(`> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.${settings.additionalText ? `\n\n${settings.additionalText}` : ""}\n\n-# 🔄 Última actualización: <t:${ahora}:R>`)
-      .setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
-    embeds.push(emptyEmbed);
-  } else {
-    const gruposPorDia = {};
-    for (const e of eventos) {
-      const fecha = new Date(e.timestamp * 1000);
-      const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
-      if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
-      gruposPorDia[diaNombre].push(e);
-    }
-
-    const diasConEventos = ORDEN_DIAS.filter(d => gruposPorDia[d] && gruposPorDia[d].length > 0);
-
-    for (let i = 0; i < diasConEventos.length; i++) {
-      const dia = diasConEventos[i];
-      const eventosDia = gruposPorDia[dia];
-      const embedDia = new EmbedBuilder().setColor(0x0099ff);
-
-      if (i === 0) embedDia.setTitle("📢 PRÓXIMOS EVENTOS");
-
-      const mitad = Math.ceil(eventosDia.length / 2);
-      const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
-      const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
-
-      let desc = `# 📅 ${dia}\n──────────`;
-      if (i === 0 && settings.additionalText) desc = `${settings.additionalText}\n\n${desc}`;
-      if (i === diasConEventos.length - 1) desc += `\n\n-# 🔄 Última actualización: <t:${ahora}:R>`;
-
-      embedDia.setDescription(desc);
-      embedDia.addFields(
-        { name: "\u200B", value: col1 || "\u200B", inline: true },
-        { name: "\u200B", value: col2 || "\u200B", inline: true }
-      );
-
-      if (i === diasConEventos.length - 1) {
-        embedDia.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
-      }
-      embeds.push(embedDia);
+  // Limpiar mensajes anteriores (pueden ser múltiples IDs separados por coma)
+  if (settings.messageId) {
+    const ids = settings.messageId.split(",");
+    for (const id of ids) {
+      const oldMsg = await channel.messages.fetch(id).catch(() => null);
+      if (oldMsg) await oldMsg.delete().catch(() => {});
     }
   }
 
+  const newMessageIds = [];
+
   try {
-    let msg = settings.messageId
-      ? await channel.messages.fetch(settings.messageId).catch(() => null)
-      : null;
+    if (eventos.length === 0) {
+      const emptyEmbed = new EmbedBuilder()
+        .setColor(0x0099ff)
+        .setDescription(`> 😴 **No hay eventos cargados.**\n-# Proba con el comando **/agregar** para cargar el primer evento.\n\n-# 🔄 Última actualización: <t:${ahora}:R>`)
+        .setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
+      
+      const m = await channel.send({ 
+        content: `# 📢 PRÓXIMOS EVENTOS${settings.additionalText ? `\n\n${settings.additionalText}` : ""}`,
+        embeds: [emptyEmbed] 
+      });
+      newMessageIds.push(m.id);
+    } else {
+      // Mensaje de Cabecera
+      const headerMsg = await channel.send({ 
+        content: `# 📢 PRÓXIMOS EVENTOS${settings.additionalText ? `\n\n${settings.additionalText}` : ""}` 
+      });
+      newMessageIds.push(headerMsg.id);
 
-    if (msg) await msg.delete().catch(() => {});
+      const gruposPorDia = {};
+      for (const e of eventos) {
+        const fecha = new Date(e.timestamp * 1000);
+        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+        const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
+        if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
+        gruposPorDia[diaNombre].push(e);
+      }
 
-    const newMsg = await channel.send({ embeds: embeds });
-    settings.messageId = newMsg.id;
+      const diasConEventos = ORDEN_DIAS.filter(d => gruposPorDia[d] && gruposPorDia[d].length > 0);
+
+      for (let i = 0; i < diasConEventos.length; i++) {
+        const dia = diasConEventos[i];
+        const eventosDia = gruposPorDia[dia];
+        const embedDia = new EmbedBuilder().setColor(0x0099ff);
+
+        const mitad = Math.ceil(eventosDia.length / 2);
+        const col1 = eventosDia.slice(0, mitad).map(formatearEvento).join("\n");
+        const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
+
+        embedDia.addFields(
+          { name: "\u200B", value: col1 || "\u200B", inline: true },
+          { name: "\u200B", value: col2 || "\u200B", inline: true }
+        );
+
+        if (i === diasConEventos.length - 1) {
+          embedDia.setDescription(`-# 🔄 Última actualización: <t:${ahora}:R>`);
+          embedDia.setFooter({ text: "Podes aportar a la lista usando el comando /agregar" });
+        }
+
+        const m = await channel.send({ 
+          content: `## 📅 ${dia}`, 
+          embeds: [embedDia] 
+        });
+        newMessageIds.push(m.id);
+      }
+    }
+
+    settings.messageId = newMessageIds.join(",");
     await settings.save();
-    console.log(`Mensaje recreado para guild=${guildId} messageId=${newMsg.id}`);
+    console.log(`Mensajes recreados para guild=${guildId}. IDs: ${settings.messageId}`);
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
   }
