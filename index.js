@@ -166,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
     const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
     const expirado = ahora > e.timestamp;
-    const texto = `**${e.nombre}**: ${hora} <t:${e.timestamp}:R>\n> -# ↪ [#${e.id}]`;
+    const texto = `**${e.nombre}** • ${hora} -# [#${e.id}]\n> <t:${e.timestamp}:R>`;
     return expirado ? `~~${texto}~~` : texto;
   };
 
@@ -197,7 +197,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
       for (const dia of ORDEN_DIAS) {
         if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-          finalText += `## 📅 ${dia}\n`;
+          finalText += `### 📅 ${dia}\n`;
           finalText += gruposPorDia[dia].map(formatearEvento).join("\n") + "\n\n";
         }
       }
