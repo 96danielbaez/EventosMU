@@ -132,7 +132,7 @@ const commands = [
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
   // COMANDO PARA VER HORARIOS EN CUALQUIER CANAL
   new SlashCommandBuilder()
-    .setName("horario")
+    .setName("horarios")
     .setDMPermission(false)
     .setDescription("Publica la lista de horarios en este canal ajustada por país.")
     .addStringOption((option) =>

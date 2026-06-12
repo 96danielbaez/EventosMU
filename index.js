@@ -437,7 +437,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= AUTOCOMPLETE =================
     if (interaction.isAutocomplete()) {
       if (
-        interaction.commandName === "horario" ||
+        interaction.commandName === "horarios" ||
         interaction.commandName === "timezone"
       ) {
         const focusedValue = normalizeString(interaction.options.getFocused());
@@ -505,7 +505,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
     // Si es el comando 'listar', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
-      const isPublic = ["listar", "horario"].includes(cmd);
+      const isPublic = ["listar", "horarios"].includes(cmd);
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
@@ -1074,8 +1074,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await interaction.editReply({ content });
     }
 
-    // ================= /HORARIO =================
-    if (cmd === "horario") {
+    // ================= /HORARIOS =================
+    if (cmd === "horarios") {
       const settings = await getSettings(interaction.guild.id);
       const ianaZoneInput = interaction.options.getString("pais");
 
