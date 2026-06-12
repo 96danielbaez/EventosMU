@@ -209,7 +209,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         fields.push(
           { name: `📅 ${dia}`, value: col1 || "\u200B", inline: true },
           { name: "\u200B", value: col2 || "\u200B", inline: true },
-          { name: "\u200B", value: "\u200B", inline: false }
         );
       }
     }
