@@ -193,6 +193,11 @@ function getFlagEmoji(countryCode) {
   return String.fromCodePoint(...codePoints);
 }
 
+// Helper para normalizar texto (quitar tildes y convertir a minúsculas)
+function normalizeString(str) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function getOffsetHours(ianaZone) {
   try {
     const now = new Date();
@@ -377,10 +382,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= AUTOCOMPLETE =================
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === "horario") {
-        const focusedValue = interaction.options.getFocused().toLowerCase();
+        const focusedValue = normalizeString(interaction.options.getFocused());
         const filtered = TIMEZONES_LIST.filter(tz => 
-          tz.name.toLowerCase().includes(focusedValue) || 
-          tz.value.toLowerCase().includes(focusedValue)
+          normalizeString(tz.name).includes(focusedValue) || 
+          normalizeString(tz.value).includes(focusedValue)
         ).slice(0, 25); // Discord permite máx 25 opciones
 
         await interaction.respond(
@@ -886,19 +891,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /HORARIO =================
     if (cmd === "horario") {
       const settings = await getSettings(interaction.guild.id);
-      const ianaZone = interaction.options.getString("pais");
+      const ianaZoneInput = interaction.options.getString("pais");
       
       let offset = settings.timezone;
-      if (ianaZone) {
-        const calculatedOffset = getOffsetHours(ianaZone);
-        if (calculatedOffset !== null) {
-          offset = calculatedOffset;
+      let validatedZone = null;
+
+      if (ianaZoneInput) {
+        // Intentamos buscar el país en nuestra lista (por valor IANA o por nombre normalizado)
+        const found = TIMEZONES_LIST.find(tz => 
+          tz.value === ianaZoneInput || 
+          normalizeString(tz.name).includes(normalizeString(ianaZoneInput))
+        );
+
+        if (!found) {
+          return await replyAndDelete(interaction, "❌ El país o ciudad ingresado no es válido. Por favor, selecciona una opción de la lista desplegable.");
         }
+
+        validatedZone = found.value;
+        const calculatedOffset = getOffsetHours(validatedZone);
+        if (calculatedOffset !== null) offset = calculatedOffset;
       }
 
       const eventos = await EventModel.find({ guildId: interaction.guild.id }).sort({ timestamp: 1 });
       
-      const embed = generarEmbedHorarios(eventos, offset, settings.additionalText, ianaZone);
+      const embed = generarEmbedHorarios(eventos, offset, settings.additionalText, validatedZone);
       return await interaction.editReply({ embeds: [embed] });
     }
   } catch (err) {
