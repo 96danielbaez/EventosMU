@@ -137,15 +137,9 @@ const commands = [
     .addStringOption((option) =>
       option
         .setName("pais")
-        .setDescription("Ver horarios para un país específico.")
+        .setDescription("Busca tu ciudad o país (ej: Buenos Aires, Madrid, Mexico...).")
         .setRequired(false)
-        .addChoices(
-          { name: "Argentina (UTC-3)", value: "AR" },
-          { name: "Bolivia/Venezuela/Chile (UTC-4)", value: "VE" },
-          { name: "Perú/Colombia/Ecuador (UTC-5)", value: "PECOL" },
-          { name: "España (UTC+1)", value: "ES" },
-
-        ),
+        .setAutocomplete(true),
     ),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD

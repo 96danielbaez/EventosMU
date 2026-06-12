@@ -144,12 +144,37 @@ async function tienePermiso(interaction) {
   return interaction.member.roles.cache.has(settings.roleId);
 }
 
-const PAISES_OFFSETS = {
-  AR: -3,
-  VE: -4,
-  PECOL: -5,
-  ES:+1,
-};
+// Lista de zonas horarias comunes para el autocompletado
+const TIMEZONES_LIST = [
+  { name: "Argentina (Buenos Aires)", value: "America/Argentina/Buenos_Aires" },
+  { name: "Bolivia (La Paz)", value: "America/La_Paz" },
+  { name: "Brasil (São Paulo)", value: "America/Sao_Paulo" },
+  { name: "Chile (Santiago)", value: "America/Santiago" },
+  { name: "Colombia (Bogotá)", value: "America/Bogota" },
+  { name: "Costa Rica", value: "America/Costa_Rica" },
+  { name: "Ecuador (Guayaquil)", value: "America/Guayaquil" },
+  { name: "España (Madrid)", value: "Europe/Madrid" },
+  { name: "España (Islas Canarias)", value: "Atlantic/Canary" },
+  { name: "México (CDMX)", value: "America/Mexico_City" },
+  { name: "México (Tijuana)", value: "America/Tijuana" },
+  { name: "Paraguay (Asunción)", value: "America/Asuncion" },
+  { name: "Perú (Lima)", value: "America/Lima" },
+  { name: "Uruguay (Montevideo)", value: "America/Montevideo" },
+  { name: "Venezuela (Caracas)", value: "America/Caracas" },
+  { name: "USA (New York - Este)", value: "America/New_York" },
+  { name: "USA (Los Angeles - Oeste)", value: "America/Los_Angeles" },
+];
+
+function getOffsetHours(ianaZone) {
+  try {
+    const now = new Date();
+    const tzDate = new Date(now.toLocaleString("en-US", { timeZone: ianaZone }));
+    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+    return Math.round((tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
+  } catch (e) {
+    return null;
+  }
+}
 
 function generarEmbedHorarios(eventos, offset, additionalText) {
   const ahora = Math.floor(Date.now() / 1000);
@@ -314,6 +339,22 @@ client.on(Events.ClientReady, () => {
 // ================= INTERACCIONES (UN SOLO HANDLER) =================
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // ================= AUTOCOMPLETE =================
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName === "horario") {
+        const focusedValue = interaction.options.getFocused().toLowerCase();
+        const filtered = TIMEZONES_LIST.filter(tz => 
+          tz.name.toLowerCase().includes(focusedValue) || 
+          tz.value.toLowerCase().includes(focusedValue)
+        ).slice(0, 25); // Discord permite máx 25 opciones
+
+        await interaction.respond(
+          filtered.map(tz => ({ name: tz.name, value: tz.value }))
+        );
+      }
+      return;
+    }
+
     // ================= BUTTONS =================
     if (interaction.isButton()) {
       if (interaction.customId === "confirm_reset") {
@@ -810,9 +851,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /HORARIO =================
     if (cmd === "horario") {
       const settings = await getSettings(interaction.guild.id);
-      const pais = interaction.options.getString("pais");
+      const ianaZone = interaction.options.getString("pais");
       
-      const offset = pais && PAISES_OFFSETS[pais] !== undefined ? PAISES_OFFSETS[pais] : settings.timezone;
+      let offset = settings.timezone;
+      if (ianaZone) {
+        const calculatedOffset = getOffsetHours(ianaZone);
+        if (calculatedOffset !== null) {
+          offset = calculatedOffset;
+        }
+      }
+
       const eventos = await EventModel.find({ guildId: interaction.guild.id }).sort({ timestamp: 1 });
       
       const embed = generarEmbedHorarios(eventos, offset, settings.additionalText);
