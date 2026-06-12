@@ -207,8 +207,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
 
         fields.push(
-          { name: "\u200B", value: `**📅 ${dia}**\n${col1}`, inline: true },
-          { name: "\u200B", value: `\u200B\n${col2 || "\u200B"}`, inline: true },
+          { name: "\u200B", value: `### 📅 ${dia}\n──────────\n${col1}`, inline: true },
+          { name: "\u200B", value: `\u200B\n──────────\n${col2 || "\u200B"}`, inline: true },
           { name: "\u200B", value: "\u200B", inline: true }
         );
       }
