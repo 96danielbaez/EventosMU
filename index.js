@@ -169,28 +169,39 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   } else {
     const offset = settings.timezone;
     const offsetMs = offset * 60 * 60 * 1000;
-    const mitad = Math.ceil(eventos.length / 2);
+    const DIAS_SEMANA = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
 
-    const formatearEvento = (e) => {
+    const gruposPorDia = {};
+    const ordenDias = [];
+
+    // Agrupar eventos por día de la semana
+    for (const e of eventos) {
       const fecha = new Date(e.timestamp * 1000);
       const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-      const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
-      const expirado = ahora > e.timestamp;
+      const diaNombre = DIAS_SEMANA[fechaEnTZ.getUTCDay()];
 
-      if (expirado) {
-        return `~~**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]~~\n`;
-      } else {
-        return `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]\n`;
+      if (!gruposPorDia[diaNombre]) {
+        gruposPorDia[diaNombre] = [];
+        ordenDias.push(diaNombre);
       }
-    };
+      gruposPorDia[diaNombre].push(e);
+    }
 
-    const col1 = eventos.slice(0, mitad).map(formatearEvento).join("");
-    const col2 = eventos.slice(mitad).map(formatearEvento).join("");
+    // Crear un field por cada día que tenga eventos
+    const fields = ordenDias.map(dia => {
+      const contenido = gruposPorDia[dia].map(e => {
+        const fecha = new Date(e.timestamp * 1000);
+        const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
+        const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
+        const expirado = ahora > e.timestamp;
+        const texto = `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]`;
+        return expirado ? `~~${texto}~~` : texto;
+      }).join("\n");
 
-    embed.addFields(
-      { name: "ㅤ", value: col1 || "\u200B", inline: true },
-      { name: "ㅤ", value: col2 || "\u200B", inline: true }
-    );
+      return { name: `📅 ${dia}`, value: contenido || "\u200B", inline: true };
+    });
+
+    embed.addFields(fields);
   }
 
   if (settings.additionalText) {
