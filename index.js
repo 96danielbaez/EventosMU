@@ -144,6 +144,9 @@ async function tienePermiso(interaction) {
   return interaction.member.roles.cache.has(settings.roleId);
 }
 
+// Control de temporizadores por servidor
+const guildsTimeouts = new Map();
+
 // ================= MENSAJE =================
 async function actualizarMensaje(client, guildId, updaterId = null) {
   const settings = await getSettings(guildId);
@@ -242,6 +245,26 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     settings.messageId = m.id;
     await settings.save();
     console.log(`Mensaje recreado para guild=${guildId}. ID: ${m.id}`);
+
+    // --- PROGRAMAR PRÓXIMA ACTUALIZACIÓN ---
+    // Limpiamos cualquier timeout previo para este servidor
+    if (guildsTimeouts.has(guildId)) {
+      clearTimeout(guildsTimeouts.get(guildId));
+    }
+
+    // Buscamos el próximo evento que aún no ha ocurrido
+    const proximoEvento = eventos.find(e => e.timestamp > ahora);
+    if (proximoEvento) {
+      // Calculamos el retraso en ms (agregamos 2 segundos de margen para asegurar que el tiempo ya pasó)
+      const delay = (proximoEvento.timestamp - ahora) * 1000 + 2000;
+      
+      // Capamos el delay a 24hs para evitar problemas con el límite de 32 bits de setTimeout
+      const MAX_DELAY = 24 * 60 * 60 * 1000;
+      const finalDelay = Math.min(delay, MAX_DELAY);
+
+      const timer = setTimeout(() => actualizarMensaje(client, guildId), finalDelay);
+      guildsTimeouts.set(guildId, timer);
+    }
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
   }
@@ -261,27 +284,18 @@ client.once(Events.ClientReady, () => {
 });
 
 // ================= ACTUALIZACIÓN PERIÓDICA =================
-const DEFAULT_UPDATE_INTERVAL = 28800; // CADA 8 hs se actualiza el mensaje (en segundos).
-
 function startAutoUpdate(client) {
-  const secs = Math.max(
-    10,
-    Number(process.env.UPDATE_INTERVAL_SECONDS) || DEFAULT_UPDATE_INTERVAL,
-  );
-  const ms = secs * 1000;
-
-  console.log(`Iniciando actualización periódica de horarios cada ${secs} segundos.`);
-
-  setInterval(async () => {
-    try {
-      const allSettings = await Settings.find({ channelId: { $exists: true } });
-      for (const s of allSettings) {
-        await actualizarMensaje(client, s.guildId);
-      }
-    } catch (err) {
-      console.error("Error en actualización periódica:", err);
+  console.log(`Iniciando sistema de actualización automática por eventos...`);
+  
+  // Al arrancar, disparamos una actualización inicial para cada servidor configurado
+  // Esto activará la cadena de temporizadores basados en el próximo evento.
+  Settings.find({ channelId: { $exists: true } }).then(allSettings => {
+    for (const s of allSettings) {
+      actualizarMensaje(client, s.guildId).catch(err => 
+        console.error(`Error inicializando guild ${s.guildId}:`, err)
+      );
     }
-  }, ms);
+  }).catch(err => console.error("Error cargando configuraciones iniciales:", err));
 }
 
 client.on(Events.ClientReady, () => {
