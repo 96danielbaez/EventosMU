@@ -1072,7 +1072,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const ianaZoneInput = interaction.options.getString("pais");
 
       let offset = settings.timezone;
-      let validatedZone = null;
+      let validatedZone = settings.ianaZone;
 
       if (ianaZoneInput) {
         // Intentamos buscar el país en nuestra lista (por valor IANA o por nombre normalizado)
