@@ -193,7 +193,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
       const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
       const expirado = ahora > e.timestamp;
-      const texto = `**${e.nombre}**: ${hora} (<t:${e.timestamp}:R>)\n> -# ↪ [#${e.id}]`;
+      const texto = `**${e.nombre}**: ${hora} <t:${e.timestamp}:R> -# [#${e.id}]`;
       return expirado ? `~~${texto}~~` : texto;
     };
 
@@ -207,9 +207,9 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const col2 = eventosDia.slice(mitad).map(formatearEvento).join("\n");
 
         fields.push(
-          { name: `📅 ${dia}`, value: "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", inline: false },
-          { name: "\u200B", value: col1 || "\u200B", inline: true },
-          { name: "\u200B", value: col2 || "\u200B", inline: true }
+          { name: "\u200B", value: `**📅 ${dia}**\n${col1}`, inline: true },
+          { name: "\u200B", value: `\u200B\n${col2 || "\u200B"}`, inline: true },
+          { name: "\u200B", value: "\u200B", inline: true }
         );
       }
     }
