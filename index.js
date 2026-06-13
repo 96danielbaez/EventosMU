@@ -235,25 +235,6 @@ function generarEmbedHorarios(
   embedColor = "#AA151B",
 ) {
   const ahora = Math.floor(Date.now() / 1000);
-  const offsetMs = offset * 60 * 60 * 1000;
-  const NOMBRES_DIAS = [
-    "DOMINGO",
-    "LUNES",
-    "MARTES",
-    "MIÉRCOLES",
-    "JUEVES",
-    "VIERNES",
-    "SÁBADO",
-  ];
-  const ORDEN_DIAS = [
-    "LUNES",
-    "MARTES",
-    "MIÉRCOLES",
-    "JUEVES",
-    "VIERNES",
-    "SÁBADO",
-    "DOMINGO",
-  ];
 
   const embed = new EmbedBuilder().setColor(embedColor);
   let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
@@ -268,7 +249,7 @@ function generarEmbedHorarios(
   }
 
   let description = "# LISTA DE HORARIOS\n";
-  description += `-# ${flagEmoji} **HORARIO PARA:** ${locationDisplay}.\n`;
+  description += `-# 🌍 **HORARIOS GLOBALES** (Multi-país)\n`;
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
@@ -290,36 +271,46 @@ function generarEmbedHorarios(
     return embed;
   }
 
-  const gruposPorDia = {};
-  for (const e of eventos) {
-    const fecha = new Date(e.timestamp * 1000);
-    // Agrupamos el día basándonos en el offset solicitado
-    const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-    const diaNombre = NOMBRES_DIAS[fechaEnTZ.getUTCDay()];
-    if (!gruposPorDia[diaNombre]) gruposPorDia[diaNombre] = [];
-    gruposPorDia[diaNombre].push(e);
-  }
+  // Definición de países solicitados
+  const paises = [
+    { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
+    { n: "PE",  z: "America/Lima",                  f: "🇵🇪" },
+    { n: "COL", z: "America/Bogota",                f: "🇨🇴" },
+    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" },
+    { n: "ES",  z: "Europe/Madrid",                 f: "🇪🇸" }
+  ];
+
+  // Agrupar por nombre de evento
+  const gruposPorEvento = {};
+  const nombresOrdenados = [];
+  eventos.forEach(e => {
+    if (!gruposPorEvento[e.nombre]) {
+      gruposPorEvento[e.nombre] = [];
+      nombresOrdenados.push(e.nombre);
+    }
+    gruposPorEvento[e.nombre].push(e);
+  });
 
   const fields = [];
-  for (const dia of ORDEN_DIAS) {
-    if (gruposPorDia[dia] && gruposPorDia[dia].length > 0) {
-      const contenido = gruposPorDia[dia]
-        .map((e) => {
-          const fecha = new Date(e.timestamp * 1000);
-          const fechaEnTZ = new Date(fecha.getTime() + offsetMs);
-          const hora = `${String(fechaEnTZ.getUTCHours()).padStart(2, "0")}:${String(fechaEnTZ.getUTCMinutes()).padStart(2, "0")}`;
-          const expirado = ahora > e.timestamp;
-          const texto = `**${e.nombre.toUpperCase()}**\n-# ${hora} • <t:${e.timestamp}:t> [#${e.id}]`;
-          return expirado ? `~~${texto}~~` : texto;
-        })
-        .join("\n");
+  for (const nombre of nombresOrdenados) {
+    const contenido = gruposPorEvento[nombre].map(e => {
+      const multiHora = paises.map(p => {
+        const hora = new Intl.DateTimeFormat("en-GB", {
+          timeZone: p.z, hour: "2-digit", minute: "2-digit"
+        }).format(new Date(e.timestamp * 1000));
+        return `${p.f} ${hora}`;
+      }).join("  |  ");
 
-      fields.push({
-        name: "\u200B",
-        value: `📅 **${dia} **\n-# ${SEPARATOR}\n${contenido}`,
-        inline: false,
-      });
-    }
+      const expirado = ahora > e.timestamp;
+      const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# ${multiHora}`;
+      return expirado ? `~~${item}~~` : item;
+    }).join("\n\n");
+
+    fields.push({
+      name: `🔥 ${nombre}`,
+      value: `${contenido}\n-# ${SEPARATOR}`,
+      inline: false
+    });
   }
 
   // Agregamos un campo invisible al final para mostrar el "actualizado hace..." 
