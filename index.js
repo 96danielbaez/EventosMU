@@ -273,41 +273,28 @@ function generarEmbedHorarios(
 
   // Definición de países solicitados
   const paises = [
+    { n: "ES",  z: "Europe/Madrid",                 f: "🇪🇸" },
     { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
     { n: "PE",  z: "America/Lima",                  f: "🇵🇪" },
     { n: "COL", z: "America/Bogota",                f: "🇨🇴" },
-    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" },
-    { n: "ES",  z: "Europe/Madrid",                 f: "🇪🇸" }
+    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" }
   ];
 
-  // Agrupar por nombre de evento
-  const gruposPorEvento = {};
-  const nombresOrdenados = [];
-  eventos.forEach(e => {
-    if (!gruposPorEvento[e.nombre]) {
-      gruposPorEvento[e.nombre] = [];
-      nombresOrdenados.push(e.nombre);
-    }
-    gruposPorEvento[e.nombre].push(e);
-  });
-
   const fields = [];
-  for (const nombre of nombresOrdenados) {
-    const contenido = gruposPorEvento[nombre].map(e => {
-      const multiHora = paises.map(p => {
-        const hora = new Intl.DateTimeFormat("en-GB", {
-          timeZone: p.z, hour: "2-digit", minute: "2-digit"
-        }).format(new Date(e.timestamp * 1000));
-        return `${p.f} ${hora}`;
-      }).join("  |  ");
+  for (const e of eventos) {
+    const multiHora = paises.map(p => {
+      const hora = new Intl.DateTimeFormat("en-GB", {
+        timeZone: p.z, hour: "2-digit", minute: "2-digit"
+      }).format(new Date(e.timestamp * 1000));
+      return `${p.f} ${hora}`;
+    }).join("  |  ");
 
-      const expirado = ahora > e.timestamp;
-      const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# ${multiHora}`;
-      return expirado ? `~~${item}~~` : item;
-    }).join("\n\n");
+    const expirado = ahora > e.timestamp;
+    const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# ${multiHora}`;
+    const contenido = expirado ? `~~${item}~~` : item;
 
     fields.push({
-      name: `🔥 ${nombre}`,
+      name: `🔥 ${e.nombre}`,
       value: `${contenido}\n-# ${SEPARATOR}`,
       inline: false
     });
