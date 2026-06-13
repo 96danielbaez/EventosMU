@@ -355,13 +355,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
-  // Limpiar mensajes anteriores (pueden ser múltiples IDs separados por coma)
+  // Intentar buscar el mensaje existente para editarlo
+  let existingMessage = null;
   if (settings.messageId) {
-    const ids = settings.messageId.split(",");
-    for (const id of ids) {
-      const oldMsg = await channel.messages.fetch(id).catch(() => null);
-      if (oldMsg) await oldMsg.delete().catch(() => {});
-    }
+    existingMessage = await channel.messages.fetch(settings.messageId).catch(() => null);
   }
 
   try {
@@ -373,10 +370,15 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       settings.embedColor,
     );
 
-    const m = await channel.send({ embeds: [embed] });
-    settings.messageId = m.id;
-    await settings.save();
-    console.log(`Mensaje recreado para guild=${guildId}. ID: ${m.id}`);
+    if (existingMessage) {
+      await existingMessage.edit({ embeds: [embed] });
+      console.log(`Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`);
+    } else {
+      const m = await channel.send({ embeds: [embed] });
+      settings.messageId = m.id;
+      await settings.save();
+      console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
+    }
 
     // --- PROGRAMAR PRÓXIMA ACTUALIZACIÓN ---
     // Limpiamos cualquier timeout previo para este servidor
