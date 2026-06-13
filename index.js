@@ -280,11 +280,12 @@ function generarEmbedHorarios(
 
   if (additionalText) description += `${additionalText}\n\n`;
 
-  embed.setFooter({ text: "Última actualización" });
-  embed.setTimestamp();
+  // El footer de Discord no soporta timestamps relativos (<t:time:R>).
+  // Usamos una constante para insertarla donde mejor quede.
+  const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:R>`;
 
   if (eventos.length === 0) {
-    description += `> 😴 **No hay eventos cargados.**\n`;
+    description += `> 😴 **No hay eventos cargados.**\n\n${footerRelativo}`;
     embed.setDescription(description);
     return embed;
   }
@@ -320,6 +321,10 @@ function generarEmbedHorarios(
       });
     }
   }
+
+  // Agregamos un campo invisible al final para mostrar el "actualizado hace..." 
+  // Esto hace que aparezca al final de la lista, simulando un footer.
+  fields.push({ name: "\u200B", value: footerRelativo });
 
   embed.addFields(fields);
   embed.setDescription(description);
