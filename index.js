@@ -281,7 +281,7 @@ function generarEmbedHorarios(
   ];
 
   const fields = [];
-  for (const e of eventos) {
+  eventos.forEach((e, i) => {
     const multiHora = paises.map(p => {
       const hora = new Intl.DateTimeFormat("en-GB", {
         timeZone: p.z, hour: "2-digit", minute: "2-digit"
@@ -293,12 +293,14 @@ function generarEmbedHorarios(
     const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# ${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
+    const isLast = i === eventos.length - 1;
+
     fields.push({
       name: `🔥 ${e.nombre}`,
-      value: `${contenido}\n-# ${SEPARATOR}`,
+      value: isLast ? contenido : `${contenido}\n-# ${SEPARATOR}`,
       inline: false
     });
-  }
+  });
 
   // Agregamos un campo invisible al final para mostrar el "actualizado hace..." 
   // Esto hace que aparezca al final de la lista, simulando un footer.
