@@ -253,11 +253,13 @@ function generarEmbedHorarios(
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
+  description += `\u200B \n`;
   if (proximo) {
-    description += `\u200B \n`;
     description += `** → PRÓXIMO EVENTO:** <t:${proximo.timestamp}:R> **←**\n`;
-    description += `\u200B \n`;
+  } else {
+    description += `** → PRÓXIMO EVENTO:** 😴 **No hay eventos cargados** **←**\n`;
   }
+  description += `\u200B \n`;
 
   if (additionalText) description += `${additionalText}\n\n`;
 
@@ -266,8 +268,7 @@ function generarEmbedHorarios(
   const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:R>`;
 
   if (eventos.length === 0) {
-    description += `> 😴 **No hay eventos cargados.**\n\n${footerRelativo}`;
-    embed.setDescription(description);
+    embed.setDescription(description + "\n" + footerRelativo);
     return embed;
   }
 
