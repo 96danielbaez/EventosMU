@@ -280,7 +280,8 @@ function generarEmbedHorarios(
 
   if (additionalText) description += `${additionalText}\n\n`;
 
-  embed.setFooter({ text: "Para cargar horarios use /agregar." });
+  embed.setFooter({ text: "Última actualización" });
+  embed.setTimestamp();
 
   if (eventos.length === 0) {
     description += `> 😴 **No hay eventos cargados.**\n`;
