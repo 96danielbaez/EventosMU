@@ -130,18 +130,6 @@ const commands = [
     .setName("actualizar")
     .setDMPermission(false)
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
-  // COMANDO PARA VER HORARIOS EN CUALQUIER CANAL
-  new SlashCommandBuilder()
-    .setName("horarios")
-    .setDMPermission(false)
-    .setDescription("Publica la lista de horarios en este canal ajustada por país.")
-    .addStringOption((option) =>
-      option
-        .setName("pais")
-        .setDescription("Busca tu ciudad o país (ej: Buenos Aires, Madrid, Mexico...).")
-        .setRequired(false)
-        .setAutocomplete(true),
-    ),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);

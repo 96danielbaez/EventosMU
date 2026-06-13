@@ -432,10 +432,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     // ================= AUTOCOMPLETE =================
     if (interaction.isAutocomplete()) {
-      if (
-        interaction.commandName === "horarios" ||
-        interaction.commandName === "timezone"
-      ) {
+      if (interaction.commandName === "timezone") {
         const focusedValue = normalizeString(interaction.options.getFocused());
         const filtered = TIMEZONES_LIST.filter(
           (tz) =>
@@ -1074,50 +1071,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const content = "```\n" + lines.join("\n") + "\n```";
 
       return await interaction.editReply({ content });
-    }
-
-    // ================= /HORARIOS =================
-    if (cmd === "horarios") {
-      const settings = await getSettings(interaction.guild.id);
-      const ianaZoneInput = interaction.options.getString("pais");
-
-      let offset = settings.timezone;
-      let validatedZone = settings.ianaZone;
-      let displayColor = settings.embedColor;
-
-      if (ianaZoneInput) {
-        // Intentamos buscar el país en nuestra lista (por valor IANA o por nombre normalizado)
-        const found = TIMEZONES_LIST.find(
-          (tz) =>
-            tz.value === ianaZoneInput ||
-            normalizeString(tz.name).includes(normalizeString(ianaZoneInput)),
-        );
-
-        if (!found) {
-          return await replyAndDelete(
-            interaction,
-            "❌ El país o ciudad ingresado no es válido. Por favor, selecciona una opción de la lista desplegable.",
-          );
-        }
-
-        validatedZone = found.value;
-        const calculatedOffset = getOffsetHours(validatedZone);
-        if (calculatedOffset !== null) offset = calculatedOffset;
-        if (found.color) displayColor = found.color;
-      }
-
-      const eventos = await EventModel.find({
-        guildId: interaction.guild.id,
-      }).sort({ timestamp: 1 });
-
-      const embed = generarEmbedHorarios(
-        eventos,
-        offset,
-        settings.additionalText,
-        validatedZone,
-        displayColor,
-      );
-      return await interaction.editReply({ embeds: [embed] });
     }
   } catch (err) {
     console.error("ERROR INTERACTION:", err);
