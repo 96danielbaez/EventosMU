@@ -36,7 +36,7 @@ const EventModel = mongoose.model("Event", EventSchema);
 
 // ================= DATABASE CONNECTION =================
 const dbUrl =
-  process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGODB_URL;
+  process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.MONGODB_URI;
 
 if (!dbUrl) {
   console.error(
