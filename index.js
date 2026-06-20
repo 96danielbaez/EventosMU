@@ -31,6 +31,7 @@ const EventSchema = new mongoose.Schema({
   nombre: String,
   timestamp: Number,
   userId: String,
+  username: String,
 });
 const EventModel = mongoose.model("Event", EventSchema);
 
@@ -709,6 +710,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         nombre: nombre.toUpperCase(),
         timestamp,
         userId: interaction.user.id,
+        username: interaction.user.username,
       });
 
       await actualizarMensaje(
