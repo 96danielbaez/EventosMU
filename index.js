@@ -342,6 +342,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   });
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
+  console.log("EVENTOS CARGADOS:");
+  console.log(JSON.stringify(eventos, null, 2));
 
   // Intentar buscar el mensaje existente para editarlo
   let existingMessage = null;
