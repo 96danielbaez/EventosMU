@@ -292,7 +292,7 @@ function generarEmbedHorarios(
     }).join("  |  ");
 
     const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# Añadido por :${e.userId}\n-# ${multiHora}`;
+    const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n-# ${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
     const isLast = i === eventos.length - 1;
@@ -342,8 +342,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   });
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
-  console.log("EVENTOS CARGADOS:");
-  console.log(JSON.stringify(eventos, null, 2));
 
   // Intentar buscar el mensaje existente para editarlo
   let existingMessage = null;
