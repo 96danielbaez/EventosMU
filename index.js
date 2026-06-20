@@ -291,7 +291,7 @@ function generarEmbedHorarios(
     }).join("  |  ");
 
     const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# ${multiHora}`;
+    const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# Añadido por :${e.userID}\n-# ${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
     const isLast = i === eventos.length - 1;
