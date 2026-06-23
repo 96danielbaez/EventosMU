@@ -333,7 +333,7 @@ function generarEmbedHorarios(
 
     fields.push({
       name: `🔥 ${e.nombre}`,
-      value: isLast ? contenido : `${contenido}\n-# ${SEPARATOR}`,
+      value: isLast ? contenido : `-# ${SEPARATOR} \n ${contenido}`,
       inline: false,
     });
   });
