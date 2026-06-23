@@ -279,7 +279,8 @@ function generarEmbedHorarios(
     { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
     { n: "PE",  z: "America/Lima",                  f: "🇵🇪" },
     { n: "COL", z: "America/Bogota",                f: "🇨🇴" },
-    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" }
+    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" },
+    { n: "US", z: "America/New_York",               f: "🇺🇸" }
   ];
 
   const fields = [];
