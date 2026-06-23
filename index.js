@@ -37,7 +37,10 @@ const EventModel = mongoose.model("Event", EventSchema);
 
 // ================= DATABASE CONNECTION =================
 const dbUrl =
-  process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGODB_URL || process.env.MONGODB_URI;
+  process.env.MONGO_URL ||
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URL ||
+  process.env.MONGODB_URI;
 
 if (!dbUrl) {
   console.error(
@@ -155,7 +158,11 @@ async function tienePermiso(interaction) {
 
 // Lista de zonas horarias comunes para el autocompletado
 const TIMEZONES_LIST = [
-  { name: "Argentina (Buenos Aires)", value: "America/Argentina/Buenos_Aires", color: "#74ACDF" },
+  {
+    name: "Argentina (Buenos Aires)",
+    value: "America/Argentina/Buenos_Aires",
+    color: "#74ACDF",
+  },
   { name: "Bolivia (La Paz)", value: "America/La_Paz", color: "#007934" },
   { name: "Brasil (São Paulo)", value: "America/Sao_Paulo", color: "#009739" },
   { name: "Chile (Santiago)", value: "America/Santiago", color: "#0039A6" },
@@ -163,15 +170,31 @@ const TIMEZONES_LIST = [
   { name: "Costa Rica", value: "America/Costa_Rica", color: "#EF1C27" },
   { name: "Ecuador (Guayaquil)", value: "America/Guayaquil", color: "#FFD700" },
   { name: "España (Madrid)", value: "Europe/Madrid", color: "#AA151B" },
-  { name: "España (Islas Canarias)", value: "Atlantic/Canary", color: "#F9D616" },
+  {
+    name: "España (Islas Canarias)",
+    value: "Atlantic/Canary",
+    color: "#F9D616",
+  },
   { name: "México (CDMX)", value: "America/Mexico_City", color: "#006847" },
   { name: "México (Tijuana)", value: "America/Tijuana", color: "#006847" },
   { name: "Paraguay (Asunción)", value: "America/Asuncion", color: "#D52B1E" },
   { name: "Perú (Lima)", value: "America/Lima", color: "#D91023" },
-  { name: "Uruguay (Montevideo)", value: "America/Montevideo", color: "#0038A8" },
+  {
+    name: "Uruguay (Montevideo)",
+    value: "America/Montevideo",
+    color: "#0038A8",
+  },
   { name: "Venezuela (Caracas)", value: "America/Caracas", color: "#F2D500" },
-  { name: "USA (New York - Este)", value: "America/New_York", color: "#B22234" },
-  { name: "USA (Los Angeles - Oeste)", value: "America/Los_Angeles", color: "#3C3B6E" },
+  {
+    name: "USA (New York - Este)",
+    value: "America/New_York",
+    color: "#B22234",
+  },
+  {
+    name: "USA (Los Angeles - Oeste)",
+    value: "America/Los_Angeles",
+    color: "#3C3B6E",
+  },
 ];
 
 // Mapping from IANA timezone to ISO 3166-1 alpha-2 country code for flags
@@ -275,22 +298,33 @@ function generarEmbedHorarios(
 
   // Definición de países solicitados
   const paises = [
-    { n: "ES",  z: "Europe/Madrid",                 f: "🇪🇸" },
+    { n: "ES", z: "Europe/Madrid", f: "🇪🇸" },
     { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
-    { n: "PE",  z: "America/Lima",                  f: "🇵🇪" },
-    { n: "COL", z: "America/Bogota",                f: "🇨🇴" },
-    { n: "VEN", z: "America/Caracas",               f: "🇻🇪" },
-    { n: "US", z: "America/New_York",               f: "🇺🇸" }
+    { n: "PE", z: "America/Lima", f: "🇵🇪" },
+    { n: "COL", z: "America/Bogota", f: "🇨🇴" },
+    { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
+    { n: "US", z: "America/New_York", f: "🇺🇸" },
   ];
 
   const fields = [];
   eventos.forEach((e, i) => {
-    const multiHora = paises.map(p => {
-      const hora = new Intl.DateTimeFormat("en-GB", {
-        timeZone: p.z, hour: "2-digit", minute: "2-digit"
-      }).format(new Date(e.timestamp * 1000));
-      return `${p.f} ${hora}`;
-    }).join("  |  ");
+    const top = paises.slice(0, 3);
+    const bottom = paises.slice(3, 6);
+
+    const formatRow = (arr) =>
+      arr
+        .map((p) => {
+          const hora = new Intl.DateTimeFormat("en-GB", {
+            timeZone: p.z,
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date(e.timestamp * 1000));
+
+          return `${p.f} ${hora}`;
+        })
+        .join("  |  ");
+
+    const multiHora = `${formatRow(top)}\n${formatRow(bottom)}`;
 
     const expirado = ahora > e.timestamp;
     const item = `**[#${e.id}]** <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n-# ${multiHora}`;
@@ -301,11 +335,11 @@ function generarEmbedHorarios(
     fields.push({
       name: `🔥 ${e.nombre}`,
       value: isLast ? contenido : `${contenido}\n-# ${SEPARATOR}`,
-      inline: false
+      inline: false,
     });
   });
 
-  // Agregamos un campo invisible al final para mostrar el "actualizado hace..." 
+  // Agregamos un campo invisible al final para mostrar el "actualizado hace..."
   // Esto hace que aparezca al final de la lista, simulando un footer.
   fields.push({ name: "\u200B", value: footerRelativo });
 
@@ -334,7 +368,14 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   const nowTz = tzComponentsFromTimestamp(ahora, offset);
 
   // Calcular el inicio del día actual (00:00) en la zona horaria del servidor
-  const inicioDelDiaTz = tzTimestampFromComponents(nowTz.year, nowTz.month, nowTz.day, 0, 0, offset);
+  const inicioDelDiaTz = tzTimestampFromComponents(
+    nowTz.year,
+    nowTz.month,
+    nowTz.day,
+    0,
+    0,
+    offset,
+  );
 
   // Limpiar automáticamente eventos de días anteriores (que ya terminaron el día anterior)
   await EventModel.deleteMany({
@@ -347,7 +388,9 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   // Intentar buscar el mensaje existente para editarlo
   let existingMessage = null;
   if (settings.messageId) {
-    existingMessage = await channel.messages.fetch(settings.messageId).catch(() => null);
+    existingMessage = await channel.messages
+      .fetch(settings.messageId)
+      .catch(() => null);
   }
 
   try {
@@ -361,7 +404,9 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
     if (existingMessage) {
       await existingMessage.edit({ embeds: [embed] });
-      console.log(`Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`);
+      console.log(
+        `Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`,
+      );
     } else {
       const m = await channel.send({ embeds: [embed] });
       settings.messageId = m.id;
@@ -377,10 +422,19 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
     // Buscamos el próximo hito de actualización: el próximo evento O la medianoche local
     const proximoEvento = eventos.find((e) => e.timestamp > ahora);
-    const proximaMedianocheTz = tzTimestampFromComponents(nowTz.year, nowTz.month, nowTz.day + 1, 0, 0, offset);
+    const proximaMedianocheTz = tzTimestampFromComponents(
+      nowTz.year,
+      nowTz.month,
+      nowTz.day + 1,
+      0,
+      0,
+      offset,
+    );
 
     // El bot se actualizará en el próximo evento o al cambio de día, lo que ocurra primero
-    const proximoUpdate = proximoEvento ? Math.min(proximoEvento.timestamp, proximaMedianocheTz) : proximaMedianocheTz;
+    const proximoUpdate = proximoEvento
+      ? Math.min(proximoEvento.timestamp, proximaMedianocheTz)
+      : proximaMedianocheTz;
 
     const delay = (proximoUpdate - ahora) * 1000 + 2000;
     const MAX_DELAY = 24 * 60 * 60 * 1000;
@@ -767,9 +821,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const ianaZoneInput = interaction.options.getString("zona");
 
       // Buscar en la lista de zonas permitidas (mismo sistema que /horario)
-      const found = TIMEZONES_LIST.find(tz => 
-        tz.value === ianaZoneInput || 
-        normalizeString(tz.name).includes(normalizeString(ianaZoneInput))
+      const found = TIMEZONES_LIST.find(
+        (tz) =>
+          tz.value === ianaZoneInput ||
+          normalizeString(tz.name).includes(normalizeString(ianaZoneInput)),
       );
 
       if (!found) {
@@ -831,10 +886,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /CONFIGURACION =================
     if (cmd === "configuracion") {
       const settings = await getSettings(interaction.guild.id);
-      
+
       // Buscar el nombre amigable y la bandera de la zona configurada
-      const zoneInfo = TIMEZONES_LIST.find(tz => tz.value === settings.ianaZone);
-      const flag = settings.ianaZone ? getFlagEmoji(IANA_TO_COUNTRY_CODE[settings.ianaZone]) : "";
+      const zoneInfo = TIMEZONES_LIST.find(
+        (tz) => tz.value === settings.ianaZone,
+      );
+      const flag = settings.ianaZone
+        ? getFlagEmoji(IANA_TO_COUNTRY_CODE[settings.ianaZone])
+        : "";
       const zoneDisplay = zoneInfo ? `${zoneInfo.name} ${flag}` : "Manual";
 
       const embed = new EmbedBuilder()
