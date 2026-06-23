@@ -273,7 +273,6 @@ function generarEmbedHorarios(
   }
 
   let description = "# LISTA DE HORARIOS\n";
-  description += `-# 🌍 **HORARIOS GLOBALES** (Multi-país)\n`;
 
   const proximo = eventos.find((e) => e.timestamp > ahora);
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
