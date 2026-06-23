@@ -278,9 +278,9 @@ function generarEmbedHorarios(
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
   description += `\u200B \n`;
   if (proximo) {
-    description += `** → PRÓXIMO EVENTO:** <t:${proximo.timestamp}:R> **←**\n`;
+    description += `**PRÓXIMO EVENTO:**\n <t:${proximo.timestamp}:R>\n`;
   } else {
-    description += `** → PRÓXIMO EVENTO:** 😴 **No hay eventos cargados** **←**\n`;
+    description += `**PRÓXIMO EVENTO:**\n 😴 **No hay eventos cargados**\n`;
   }
   description += `\u200B \n`;
 
