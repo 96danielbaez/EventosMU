@@ -326,14 +326,14 @@ function generarEmbedHorarios(
     const multiHora = `-# ${formatRow(top)}\n-# ${formatRow(bottom)}`;
 
     const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-#${SEPARATOR} \n-#Añadido por: <@${e.userId}>\n${multiHora}`;
+    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
     const isLast = i === eventos.length - 1;
 
     fields.push({
       name: `🔥 ${e.nombre}`,
-      value: isLast ? contenido : `${contenido} \u200B \u200B`,
+      value: isLast ? contenido : `${contenido}\n-# ${SEPARATOR}`,
       inline: false,
     });
   });
