@@ -1118,6 +1118,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const members = Array.from(voiceChannel.members.values());
+      
+      // Mezclar aleatoriamente (Fisher-Yates)
+      for (let i = members.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [members[i], members[j]] = [members[j], members[i]];
+      }
 
       if (!members.length) {
         return await replyAndDelete(
