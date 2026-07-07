@@ -308,8 +308,8 @@ function generarEmbedHorarios(
 
   const fields = [];
   eventos.forEach((e, i) => {
-    const top = paises.slice(0, 3);
-    const bottom = paises.slice(3, 6);
+    const top = paises.slice(0, 4);
+    const bottom = paises.slice(4);
 
     const formatRow = (arr) =>
       arr
