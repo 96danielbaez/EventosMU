@@ -299,6 +299,7 @@ function generarEmbedHorarios(
   const paises = [
     { n: "ES", z: "Europe/Madrid", f: "🇪🇸" },
     { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
+    { n: "BR", z: "America/Sao_Paulo", f: "🇧🇷" },
     { n: "PE", z: "America/Lima", f: "🇵🇪" },
     { n: "COL", z: "America/Bogota", f: "🇨🇴" },
     { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
