@@ -308,11 +308,11 @@ function generarEmbedHorarios(
 
   const fields = [];
   eventos.forEach((e, i) => {
-    const top = paises.slice(0, 4);
-    const bottom = paises.slice(4);
+    const filas = [];
 
-    const formatRow = (arr) =>
-      arr
+    for (let i = 0; i < paises.length; i += 2) {
+      const fila = paises
+        .slice(i, i + 2)
         .map((p) => {
           const hora = new Intl.DateTimeFormat("en-GB", {
             timeZone: p.z,
@@ -324,7 +324,10 @@ function generarEmbedHorarios(
         })
         .join("  |  ");
 
-    const multiHora = `-# ${formatRow(top)}\n-# ${formatRow(bottom)}`;
+      filas.push(`-# ${fila}`);
+    }
+
+    const multiHora = filas.join("\n");
 
     const expirado = ahora > e.timestamp;
     const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
