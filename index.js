@@ -301,34 +301,29 @@ function generarEmbedHorarios(
     { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
     { n: "BR", z: "America/Sao_Paulo", f: "🇧🇷" },
     { n: "PE", z: "America/Lima", f: "🇵🇪" },
-    { n: "COL", z: "America/Bogota", f: "🇨🇴" },
     { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
     { n: "US", z: "America/New_York", f: "🇺🇸" },
   ];
 
   const fields = [];
   eventos.forEach((e, i) => {
-    const primera = paises.slice(0, 1);
-const segunda = paises.slice(1, 4);
-const tercera = paises.slice(4, 7);
+    const top = paises.slice(0, 3);
+    const bottom = paises.slice(3, 6);
 
-const formatRow = (arr) =>
-  arr
-    .map((p) => {
-      const hora = new Intl.DateTimeFormat("en-GB", {
-        timeZone: p.z,
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(e.timestamp * 1000));
+    const formatRow = (arr) =>
+      arr
+        .map((p) => {
+          const hora = new Intl.DateTimeFormat("en-GB", {
+            timeZone: p.z,
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date(e.timestamp * 1000));
 
-      return `${p.f} ${hora}`;
-    })
-    .join("  |  ");
+          return `${p.f} ${hora}`;
+        })
+        .join("  |  ");
 
-const multiHora =
-  `-# ${formatRow(primera)}\n` +
-  `-# ${formatRow(segunda)}\n` +
-  `-# ${formatRow(tercera)}`;
+    const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
 
     const expirado = ahora > e.timestamp;
     const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
