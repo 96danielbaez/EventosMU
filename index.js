@@ -308,26 +308,27 @@ function generarEmbedHorarios(
 
   const fields = [];
   eventos.forEach((e, i) => {
-    const filas = [];
+    const primera = paises.slice(0, 1);
+const segunda = paises.slice(1, 4);
+const tercera = paises.slice(4, 7);
 
-    for (let i = 0; i < paises.length; i += 2) {
-      const fila = paises
-        .slice(i, i + 2)
-        .map((p) => {
-          const hora = new Intl.DateTimeFormat("en-GB", {
-            timeZone: p.z,
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(e.timestamp * 1000));
+const formatRow = (arr) =>
+  arr
+    .map((p) => {
+      const hora = new Intl.DateTimeFormat("en-GB", {
+        timeZone: p.z,
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(e.timestamp * 1000));
 
-          return `${p.f} ${hora}`;
-        })
-        .join("  |  ");
+      return `${p.f} ${hora}`;
+    })
+    .join("  |  ");
 
-      filas.push(`-# ${fila}`);
-    }
-
-    const multiHora = filas.join("\n");
+const multiHora =
+  `-# ${formatRow(primera)}\n` +
+  `-# ${formatRow(segunda)}\n` +
+  `-# ${formatRow(tercera)}`;
 
     const expirado = ahora > e.timestamp;
     const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
