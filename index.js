@@ -103,7 +103,9 @@ async function replyAndDelete(interaction, content) {
     const isConfig = ["canal", "permisos", "timezone"].includes(
       interaction.commandName || "",
     );
-    const isPublic = ["listar"].includes(interaction.commandName || "");
+    const isPublic = ["listar", "proximo"].includes(
+      interaction.commandName || "",
+    );
 
     let color = 0x00ae86; // Verde (éxito por defecto)
     if (isRed) color = 0xff0000;
@@ -217,6 +219,15 @@ const IANA_TO_COUNTRY_CODE = {
   "America/New_York": "US",
   "America/Los_Angeles": "US",
 };
+
+const PAISES_HORARIOS = [
+  { n: "ES", z: "Europe/Madrid", f: "🇪🇸" },
+  { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
+  { n: "BR", z: "America/Sao_Paulo", f: "🇧🇷" },
+  { n: "PE", z: "America/Lima", f: "🇵🇪" },
+  { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
+  { n: "US", z: "America/New_York", f: "🇺🇸" },
+];
 
 // Helper function to get flag emoji from ISO 3166-1 alpha-2 country code
 function getFlagEmoji(countryCode) {
@@ -344,6 +355,41 @@ function generarEmbedHorarios(
 
   embed.addFields(fields);
   embed.setDescription(description);
+  return embed;
+}
+
+function generarEmbedProximo(evento, embedColor = "#AA151B") {
+  const embed = new EmbedBuilder().setColor(embedColor);
+
+  if (!evento) {
+    embed.setTitle("PRÓXIMO EVENTO");
+    embed.setDescription("😴 **No hay eventos cargados**");
+    return embed;
+  }
+
+  const top = PAISES_HORARIOS.slice(0, 3);
+  const bottom = PAISES_HORARIOS.slice(3, 6);
+
+  const formatRow = (arr) =>
+    arr
+      .map((p) => {
+        const hora = new Intl.DateTimeFormat("en-GB", {
+          timeZone: p.z,
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(evento.timestamp * 1000));
+
+        return `${p.f} ${hora}`;
+      })
+      .join("  |  ");
+
+  const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
+
+  embed.setTitle("PRÓXIMO EVENTO");
+  embed.setDescription(
+    `**${evento.nombre}**\n<t:${evento.timestamp}:F> (<t:${evento.timestamp}:R>)`,
+  );
+  embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
 }
 
@@ -951,6 +997,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         interaction,
         texto ? `✅ Mensaje **AGREGADO**.` : `✅ Mensaje **BORRADO**.`,
       );
+    }
+
+    // ================= /PROXIMO =================
+    if (cmd === "proximo") {
+      const ahora = Math.floor(Date.now() / 1000);
+      const evento = await EventModel.findOne({
+        guildId: interaction.guild.id,
+        timestamp: { $gt: ahora },
+      })
+        .sort({ timestamp: 1 })
+        .lean();
+
+      const settings = await getSettings(interaction.guild.id);
+      const embed = generarEmbedProximo(evento, settings.embedColor);
+      await interaction.editReply({ embeds: [embed] });
+      return;
     }
     // ================= /EDITAR =================
     if (cmd === "editar") {

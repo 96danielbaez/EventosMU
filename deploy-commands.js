@@ -115,6 +115,11 @@ const commands = [
         .setDescription("Texto opcional que aparecerá debajo del título.")
         .setRequired(false),
     ),
+  // COMANDO PARA VER EL PRÓXIMO EVENTO
+  new SlashCommandBuilder()
+    .setName("proximo")
+    .setDMPermission(false)
+    .setDescription("Muestra el próximo evento con horarios por país."),
   // COMANDO PARA LISTAR USUARIOS EN VOICE
   new SlashCommandBuilder()
     .setName("listar")
