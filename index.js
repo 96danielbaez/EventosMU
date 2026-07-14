@@ -358,7 +358,11 @@ function generarEmbedHorarios(
   return embed;
 }
 
-function generarEmbedProximo(evento, embedColor = "#AA151B") {
+function generarEmbedProximo(
+  evento,
+  timezone = "UTC",
+  embedColor = "#AA151B",
+) {
   const embed = new EmbedBuilder().setColor(embedColor);
 
   if (!evento) {
@@ -385,9 +389,23 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
 
   const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
 
+  let eventTime;
+  try {
+    eventTime = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(evento.timestamp * 1000));
+  } catch (err) {
+    eventTime = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(evento.timestamp * 1000));
+  }
+
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n<t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>)`,
+    `**${evento.nombre}**\n${eventTime} (<t:${evento.timestamp}:R>)`,
   );
   embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
@@ -1002,15 +1020,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ================= /PROXIMO =================
     if (cmd === "proximo") {
       const ahora = Math.floor(Date.now() / 1000);
+      const guildId = interaction.guild.id;
+      const settings = await getSettings(guildId);
       const evento = await EventModel.findOne({
-        guildId: interaction.guild.id,
+        guildId,
         timestamp: { $gt: ahora },
       })
         .sort({ timestamp: 1 })
         .lean();
 
-      const settings = await getSettings(interaction.guild.id);
-      const embed = generarEmbedProximo(evento, settings.embedColor);
+      if (!evento) {
+        const embed = new EmbedBuilder()
+          .setColor(settings.embedColor || "#AA151B")
+          .setTitle("PRÓXIMO EVENTO")
+          .setDescription("😴 **No hay próximos eventos cargados**");
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      const timezone = settings.ianaZone || "UTC";
+      const embed = generarEmbedProximo(
+        evento,
+        timezone,
+        settings.embedColor,
+      );
       await interaction.editReply({ embeds: [embed] });
       return;
     }
