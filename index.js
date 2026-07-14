@@ -358,11 +358,7 @@ function generarEmbedHorarios(
   return embed;
 }
 
-function generarEmbedProximo(
-  evento,
-  timezone = "UTC",
-  embedColor = "#AA151B",
-) {
+function generarEmbedProximo(evento, embedColor = "#AA151B") {
   const embed = new EmbedBuilder().setColor(embedColor);
 
   if (!evento) {
@@ -389,23 +385,9 @@ function generarEmbedProximo(
 
   const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
 
-  let eventTime;
-  try {
-    eventTime = new Intl.DateTimeFormat("en-GB", {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(evento.timestamp * 1000));
-  } catch (err) {
-    eventTime = new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(evento.timestamp * 1000));
-  }
-
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n${eventTime} (<t:${evento.timestamp}:R>)`,
+    `**${evento.nombre}**\n<t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>)`,
   );
   embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
