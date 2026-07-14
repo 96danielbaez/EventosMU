@@ -1020,12 +1020,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const timezone = settings.ianaZone || "UTC";
-      const embed = generarEmbedProximo(
-        evento,
-        timezone,
-        settings.embedColor,
-      );
+      const embed = generarEmbedProximo(evento, settings.embedColor);
       await interaction.editReply({ embeds: [embed] });
       return;
     }
