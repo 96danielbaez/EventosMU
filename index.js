@@ -600,9 +600,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const cmd = interaction.commandName;
 
     // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
-    // Si es el comando 'listar', lo hacemos público (ephemeral: false)
+    // Si es el comando 'listar' o 'proximo', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
-      const isPublic = ["listar"].includes(cmd);
+      const isPublic = ["listar", "proximo"].includes(cmd);
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
