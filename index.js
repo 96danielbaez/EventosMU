@@ -387,7 +387,7 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
 
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n<t:${evento.timestamp}:F> (<t:${evento.timestamp}:R>)`,
+    `**${evento.nombre}**\n<t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>)`,
   );
   embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
