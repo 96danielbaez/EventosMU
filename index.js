@@ -365,32 +365,17 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
     return embed;
   }
 
-  const top = PAISES_HORARIOS.slice(0, 3);
-  const bottom = PAISES_HORARIOS.slice(3, 6);
-
-  const formatRow = (arr) =>
-    arr
-      .map((p) => {
-        const hora = new Intl.DateTimeFormat("en-GB", {
-          timeZone: p.z,
-          hour: "2-digit",
-          minute: "2-digit",
-        }).format(new Date(evento.timestamp * 1000));
-
-        return `${p.f} ${hora}`;
-      })
-      .join("  |  ");
-
-  const multiHora = [formatRow(top), formatRow(bottom)]
-    .filter(Boolean)
-    .join("\n")
-    .replace(/^/, "-# ");
+  const primerPais = PAISES_HORARIOS[0];
+  const primerHora = new Intl.DateTimeFormat("en-GB", {
+    timeZone: primerPais?.z || "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(evento.timestamp * 1000));
 
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n**<t:${evento.timestamp}:t>** (<t:${evento.timestamp}:R>)`,
+    `**${evento.nombre}**\n**${primerHora}** (<t:${evento.timestamp}:R>)`,
   );
-  embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
 }
 
