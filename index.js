@@ -220,14 +220,7 @@ const IANA_TO_COUNTRY_CODE = {
   "America/Los_Angeles": "US",
 };
 
-const PAISES_HORARIOS = [
-  { n: "ES", z: "Europe/Madrid", f: "🇪🇸" },
-  { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
-  { n: "BR", z: "America/Sao_Paulo", f: "🇧🇷" },
-  { n: "PE", z: "America/Lima", f: "🇵🇪" },
-  { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
-  { n: "US", z: "America/New_York", f: "🇺🇸" },
-];
+const PAISES_HORARIOS = [{ n: "ES", z: "Europe/Madrid", f: "🇪🇸" }];
 
 // Helper function to get flag emoji from ISO 3166-1 alpha-2 country code
 function getFlagEmoji(countryCode) {
@@ -317,14 +310,7 @@ function generarEmbedHorarios(
   }
 
   // Definición de países solicitados
-  const paises = [
-    { n: "ES", z: "Europe/Madrid", f: "🇪🇸" },
-    { n: "ARG", z: "America/Argentina/Buenos_Aires", f: "🇦🇷" },
-    { n: "BR", z: "America/Sao_Paulo", f: "🇧🇷" },
-    { n: "PE", z: "America/Lima", f: "🇵🇪" },
-    { n: "VEN", z: "America/Caracas", f: "🇻🇪" },
-    { n: "US", z: "America/New_York", f: "🇺🇸" },
-  ];
+  const paises = [{ n: "ES", z: "Europe/Madrid", f: "🇪🇸" }];
 
   const fields = [];
   eventos.forEach((e, i) => {
@@ -344,7 +330,10 @@ function generarEmbedHorarios(
         })
         .join("  |  ");
 
-    const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
+    const multiHora = [formatRow(top), formatRow(bottom)]
+      .filter(Boolean)
+      .join("\n")
+      .replace(/^/, "-# ");
 
     const expirado = ahora > e.timestamp;
     const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
@@ -393,7 +382,10 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
       })
       .join("  |  ");
 
-  const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
+  const multiHora = [formatRow(top), formatRow(bottom)]
+    .filter(Boolean)
+    .join("\n")
+    .replace(/^/, "-# ");
 
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
