@@ -300,7 +300,7 @@ function generarEmbedHorarios(
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
   description += `\u200B \n`;
   if (proximo) {
-    description += `**PRÓXIMO EVENTO:**\n ${formatTiempoRestante(proximo.timestamp, ahora)}\n`;
+    description += `**PRÓXIMO EVENTO:**\n <t:${proximo.timestamp}:t>\n`;
   } else {
     description += `**PRÓXIMO EVENTO:**\n 😴 **No hay eventos cargados**\n`;
   }
@@ -308,9 +308,8 @@ function generarEmbedHorarios(
 
   if (additionalText) description += `${additionalText}\n\n`;
 
-  // El footer de Discord no soporta timestamps relativos (<t:time:R>).
-  // Usamos una constante para insertarla donde mejor quede.
-  const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:R>`;
+  // A diferencia de :R, :t muestra la hora exacta sin redondear el tiempo restante.
+  const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:t>`;
 
   if (eventos.length === 0) {
     embed.setDescription(description + "\n" + footerRelativo);
@@ -348,7 +347,7 @@ function generarEmbedHorarios(
     const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
 
     const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (${formatTiempoRestante(e.timestamp, ahora)})\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
+    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>**\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
     const isLast = i === eventos.length - 1;
@@ -398,7 +397,7 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
 
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n**<t:${evento.timestamp}:t>** (${formatTiempoRestante(evento.timestamp, Math.floor(Date.now() / 1000))})`,
+    `**${evento.nombre}**\n**<t:${evento.timestamp}:t>**`,
   );
   embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
