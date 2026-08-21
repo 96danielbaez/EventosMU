@@ -220,7 +220,7 @@ const IANA_TO_COUNTRY_CODE = {
   "America/Los_Angeles": "US",
 };
 
-const PAISES_HORARIOS = [{ n: "ES", z: "Europe/Madrid", f: "🇪🇸" }];
+const PAISES_HORARIOS = [{ n: "ES", z: "Europe/Madrid", f: "" }];
 
 // Helper function to get flag emoji from ISO 3166-1 alpha-2 country code
 function getFlagEmoji(countryCode) {
@@ -310,7 +310,7 @@ function generarEmbedHorarios(
   }
 
   // Definición de países solicitados
-  const paises = [{ n: "ES", z: "Europe/Madrid", f: "🇪🇸" }];
+  const paises = [{ n: "ES", z: "Europe/Madrid", f: "" }];
 
   const fields = [];
   eventos.forEach((e, i) => {
@@ -326,7 +326,7 @@ function generarEmbedHorarios(
             minute: "2-digit",
           }).format(new Date(e.timestamp * 1000));
 
-          return `${p.f} ${hora}`;
+          return p.f ? `${p.f} ${hora}` : hora;
         })
         .join("  |  ");
 
