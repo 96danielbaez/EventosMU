@@ -262,6 +262,16 @@ function getOffsetHours(ianaZone) {
   }
 }
 
+function formatTiempoRestante(timestampSec, nowSec = Math.floor(Date.now() / 1000)) {
+  const diffSec = Math.max(0, timestampSec - nowSec);
+  const hours = Math.floor(diffSec / 3600);
+  const minutes = Math.floor((diffSec % 3600) / 60);
+
+  if (hours > 0) return `falta ${hours}h ${minutes}m`;
+  if (minutes > 0) return `falta ${minutes}m`;
+  return "falta menos de 1m";
+}
+
 function generarEmbedHorarios(
   eventos,
   offset,
@@ -289,7 +299,7 @@ function generarEmbedHorarios(
   const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
   description += `\u200B \n`;
   if (proximo) {
-    description += `**PRÓXIMO EVENTO:**\n <t:${proximo.timestamp}:R>\n`;
+    description += `**PRÓXIMO EVENTO:**\n ${formatTiempoRestante(proximo.timestamp, ahora)}\n`;
   } else {
     description += `**PRÓXIMO EVENTO:**\n 😴 **No hay eventos cargados**\n`;
   }
@@ -337,7 +347,8 @@ function generarEmbedHorarios(
     const multiHora = `-# ${formatRow(top)}\n` + `-# ${formatRow(bottom)}`;
 
     const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (<t:${e.timestamp}:R>)\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
+    const tiempoRestante = formatTiempoRestante(e.timestamp, ahora);
+    const item = `**[#${e.id}]** **<t:${e.timestamp}:t>** (${tiempoRestante})\n-# Añadido por: <@${e.userId}>\n${multiHora}`;
     const contenido = expirado ? `~~${item}~~` : item;
 
     const isLast = i === eventos.length - 1;
@@ -387,7 +398,7 @@ function generarEmbedProximo(evento, embedColor = "#AA151B") {
 
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `**${evento.nombre}**\n**<t:${evento.timestamp}:t>** (<t:${evento.timestamp}:R>)`,
+    `**${evento.nombre}**\n**<t:${evento.timestamp}:t>** (${formatTiempoRestante(evento.timestamp, Math.floor(Date.now() / 1000))})`,
   );
   embed.addFields({ name: "Horarios", value: multiHora });
   return embed;
