@@ -30,12 +30,18 @@ const EventSchema = new mongoose.Schema({
   id: Number,
   nombre: String,
   timestamp: Number,
+  // repeat: 'daily' -> repetir cada 24h, 'weekly' -> repetir cada 7 días
+  repeat: { type: String, enum: ["daily", "weekly"], default: null },
   userId: String,
   username: String,
 });
 const EventModel = mongoose.model("Event", EventSchema);
 
 // ================= DATABASE CONNECTION =================
+
+const dns = require("dns");
+dns.setServers(["1.1.1.1"]);
+
 const dbUrl =
   process.env.MONGO_URL ||
   process.env.MONGO_URI ||
@@ -60,6 +66,17 @@ async function getSettings(guildId) {
     settings = await Settings.create({ guildId });
   }
   return settings;
+}
+
+async function ensureDisplayModeMigration() {
+  try {
+    await Settings.updateMany(
+      { displayMode: { $exists: false } },
+      { $set: { displayMode: "all" } },
+    );
+  } catch (err) {
+    console.error("Error migrando displayMode:", err);
+  }
 }
 
 async function getNextEventId(guildId) {
@@ -275,7 +292,7 @@ function generarEmbedHorarios(
 ) {
   const ahora = Math.floor(Date.now() / 1000);
 
-  const embed = new EmbedBuilder().setColor(embedColor);
+  const embed = new EmbedBuilder().setColor(embedColor).setTitle("HORARIO BOSSES");
   let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
   let flagEmoji = "";
   if (ianaZone) {
@@ -287,21 +304,13 @@ function generarEmbedHorarios(
     }
   }
 
-  let description = "# LISTA DE HORARIOS\n";
+  let description = "";
 
-  const proximo = eventos.find((e) => e.timestamp > ahora);
-  const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪"; // ~30 caracteres para mejor cobertura visual
-  description += `\u200B \n`;
-  if (proximo) {
-    description += `**PRÓXIMO EVENTO:**\n <t:${proximo.timestamp}:R>\n`;
-  } else {
-    description += `**PRÓXIMO EVENTO:**\n 😴 **No hay eventos cargados**\n`;
-  }
+  const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪";
   description += `\u200B \n`;
 
   if (additionalText) description += `${additionalText}\n\n`;
 
-  // A diferencia de :R, :t muestra la hora exacta sin redondear el tiempo restante.
   const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:t>`;
 
   if (eventos.length === 0) {
@@ -309,15 +318,45 @@ function generarEmbedHorarios(
     return embed;
   }
 
-  // Definición de países solicitados
-  const paises = [{ n: "ES", z: "Europe/Madrid", f: "" }];
+  const paises = PAISES_HORARIOS.map((p) => ({
+    ...p,
+    f: p.f || getFlagEmoji(IANA_TO_COUNTRY_CODE[p.z]) || "",
+  }));
 
   const fields = [];
-  eventos.forEach((e, i) => {
-    const top = paises.slice(0, 3);
-    const bottom = paises.slice(3, 6);
+  const groups = new Map();
+  for (const e of eventos) {
+    const c = tzComponentsFromTimestamp(e.timestamp, offset);
+    const key = `${c.year}-${String(c.month + 1).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
+    if (!groups.has(key)) groups.set(key, { comp: c, items: [] });
+    groups.get(key).items.push(e);
+  }
 
-    const formatRow = (arr) =>
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+    const ka = groups.get(a).items[0].timestamp;
+    const kb = groups.get(b).items[0].timestamp;
+    return ka - kb;
+  });
+
+  const dayNames = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
+
+  for (let gi = 0; gi < sortedKeys.length; gi++) {
+    const key = sortedKeys[gi];
+    const { comp, items } = groups.get(key);
+    const utcDate = new Date(Date.UTC(comp.year, comp.month, comp.day));
+    const dayName = dayNames[utcDate.getUTCDay()];
+    const headerName = `📅 ${dayName.toUpperCase()}`;
+
+    const lines = [];
+    const formatRowFor = (e, arr) =>
       arr
         .map((p) => {
           const hora = new Intl.DateTimeFormat("en-GB", {
@@ -325,35 +364,134 @@ function generarEmbedHorarios(
             hour: "2-digit",
             minute: "2-digit",
           }).format(new Date(e.timestamp * 1000));
-
           return p.f ? `${p.f} ${hora}` : hora;
         })
         .join("  |  ");
 
-    const multiHora = [formatRow(top), formatRow(bottom)]
-      .filter(Boolean)
-      .join("\n");
+    for (let idx = 0; idx < items.length; idx++) {
+      const e = items[idx];
+      const top = paises.slice(0, 3);
+      const bottom = paises.slice(3, 6);
+      const multiHora = [formatRowFor(e, top), formatRowFor(e, bottom)]
+        .filter(Boolean)
+        .join("\n");
 
-    const expirado = ahora > e.timestamp;
-    const item = `**[#${e.id}]** ${multiHora} - **<t:${e.timestamp}:t>** \n(<t:${e.timestamp}:R>)`;
-    const contenido = expirado ? `~~${item}~~` : item;
+      const expirado = ahora > e.timestamp;
+      const nombreLine = e.nombre ? `**${e.nombre}**\n` : "";
+      const item = `${nombreLine}**[#${e.id}]** ${multiHora} - **<t:${e.timestamp}:t>** \n(<t:${e.timestamp}:R>)`;
+      const contenido = expirado ? `~~${item}~~` : item;
+      lines.push(contenido);
+    }
 
-    const isLast = i === eventos.length - 1;
+    let value = lines.join("\n\u200A\n");
+    if (gi < sortedKeys.length - 1) {
+      value = value + "\n" + `-# ${SEPARATOR}`;
+    }
+    fields.push({ name: headerName, value, inline: false });
+  }
 
-    fields.push({
-      name: `🔥 ${e.nombre}`,
-      value: isLast ? contenido : `${contenido}\n-# ${SEPARATOR}`,
-      inline: false,
-    });
-  });
-
-  // Agregamos un campo invisible al final para mostrar el "actualizado hace..."
-  // Esto hace que aparezca al final de la lista, simulando un footer.
   fields.push({ name: "\u200B", value: footerRelativo });
 
   embed.addFields(fields);
   embed.setDescription(description);
   return embed;
+}
+
+function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = null, displayMode = "all") {
+  const ahora = Math.floor(Date.now() / 1000);
+  let out = "";
+  if (additionalText) out += `${additionalText}\n\n`;
+
+  if (!eventos || eventos.length === 0) {
+    out += "No hay eventos cargados\n";
+    out += `Última actualización: <t:${ahora}:t>`;
+    return out;
+  }
+
+  const today = tzComponentsFromTimestamp(ahora, offset);
+  const todayKey = `${today.year}-${String(today.month + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+  const tomorrowDate = new Date(Date.UTC(today.year, today.month, today.day + 1));
+  const tomorrowKey = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
+
+  const filteredEventos = eventos.filter((e) => {
+    if (displayMode === "today_tomorrow") {
+      const comp = tzComponentsFromTimestamp(e.timestamp, offset);
+      const key = `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
+      return key === todayKey || key === tomorrowKey;
+    }
+    return true;
+  });
+
+  if (!filteredEventos.length) {
+    out += "No hay eventos para hoy ni mañana\n";
+    out += `Última actualización: <t:${ahora}:t>`;
+    return out;
+  }
+
+  const paises = PAISES_HORARIOS.map((p) => ({
+    ...p,
+    f: p.f || getFlagEmoji(IANA_TO_COUNTRY_CODE[p.z]) || "",
+  }));
+
+  const groups = new Map();
+  for (const e of filteredEventos) {
+    const c = tzComponentsFromTimestamp(e.timestamp, offset);
+    const key = `${c.year}-${String(c.month + 1).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
+    if (!groups.has(key)) groups.set(key, { comp: c, items: [] });
+    groups.get(key).items.push(e);
+  }
+
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+    const ka = groups.get(a).items[0].timestamp;
+    const kb = groups.get(b).items[0].timestamp;
+    return ka - kb;
+  });
+
+  const dayNames = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
+
+  const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪";
+
+  for (let gi = 0; gi < sortedKeys.length; gi++) {
+    const key = sortedKeys[gi];
+    const { comp, items } = groups.get(key);
+    const utcDate = new Date(Date.UTC(comp.year, comp.month, comp.day));
+    const dayName = dayNames[utcDate.getUTCDay()].toUpperCase();
+
+    out += `**${dayName}**\n`;
+
+    for (const e of items) {
+      if (e.nombre) out += `**${e.nombre}**\n`;
+      const formatRow = (arr) => arr
+        .map((p) => {
+          const hora = new Intl.DateTimeFormat("en-GB", {
+            timeZone: p.z,
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date(e.timestamp * 1000));
+          return p.f ? `${p.f} ${hora}` : hora;
+        })
+        .join("  |  ");
+
+      const top = paises.slice(0, 3);
+      const bottom = paises.slice(3, 6);
+      const multiHora = [formatRow(top), formatRow(bottom)].filter(Boolean).join("\n");
+      out += `[#${e.id}] ${multiHora} - <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n`;
+    }
+
+    if (gi < sortedKeys.length - 1) out += `-# ${SEPARATOR}\n`;
+    out += "\n";
+  }
+
+  out += `Última actualización: <t:${ahora}:t>`;
+  return out;
 }
 
 function generarEmbedProximo(evento, embedColor = "#AA151B") {
@@ -385,13 +523,21 @@ const guildsTimeouts = new Map();
 // ================= MENSAJE =================
 async function actualizarMensaje(client, guildId, updaterId = null) {
   const settings = await getSettings(guildId);
-  if (!settings.channelId) return;
+  if (!settings.channelId) return false;
 
-  const channel = await client.channels.fetch(settings.channelId);
+  let channel;
+  try {
+    channel = await client.channels.fetch(settings.channelId);
+  } catch (error) {
+    console.error(`No se pudo obtener el canal ${settings.channelId} para guild ${guildId}:`, error);
+    settings.channelId = null;
+    await settings.save().catch(() => {});
+    return false;
+  }
 
   if (updaterId) {
     settings.lastUpdatedBy = updaterId;
-    await settings.save();
+    await settings.save().catch(() => {});
   }
 
   const ahora = Math.floor(Date.now() / 1000);
@@ -408,20 +554,49 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     offset,
   );
 
-  // Limpiar automáticamente eventos de días anteriores (que ya terminaron el día anterior)
-  await EventModel.deleteMany({
-    guildId,
-    timestamp: { $lt: inicioDelDiaTz },
-  });
+  // Rotar o eliminar automáticamente eventos de días anteriores
+  // Para eventos repetidos, actualizamos su timestamp hacia adelante en bloques
+  // (24h para 'daily', 7 días para 'weekly'). Los no repetidos se eliminan.
+  try {
+    const oldEvents = await EventModel.find({
+      guildId,
+      timestamp: { $lt: inicioDelDiaTz },
+    });
+
+    for (const ev of oldEvents) {
+      if (ev.repeat === "daily") {
+        while (ev.timestamp < inicioDelDiaTz) {
+          ev.timestamp += 24 * 60 * 60;
+        }
+        await ev.save();
+      } else if (ev.repeat === "weekly") {
+        while (ev.timestamp < inicioDelDiaTz) {
+          ev.timestamp += 7 * 24 * 60 * 60;
+        }
+        await ev.save();
+      }
+    }
+  } catch (e) {
+    console.error("Error rotando eventos antiguos:", e);
+  }
 
   const eventos = await EventModel.find({ guildId }).sort({ timestamp: 1 });
 
-  // Intentar buscar el mensaje existente para editarlo
   let existingMessage = null;
   if (settings.messageId) {
-    existingMessage = await channel.messages
-      .fetch(settings.messageId)
-      .catch(() => null);
+    try {
+      existingMessage = await channel.messages.fetch(settings.messageId);
+      if (!existingMessage || existingMessage.author?.id !== client.user.id) {
+        throw new Error("El mensaje principal no pertenece al bot.");
+      }
+    } catch (error) {
+      console.warn(
+        `Mensaje principal perdido para guild=${guildId}. Se recreará. messageId=${settings.messageId}`,
+      );
+      settings.messageId = null;
+      await settings.save().catch(() => {});
+      existingMessage = null;
+    }
   }
 
   try {
@@ -431,13 +606,34 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       settings.additionalText,
       settings.ianaZone,
       settings.embedColor,
+      settings.displayMode || "all",
     );
 
     if (existingMessage) {
-      await existingMessage.edit({ embeds: [embed] });
-      console.log(
-        `Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`,
-      );
+      try {
+        await existingMessage.edit({ embeds: [embed] });
+        console.log(`Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`);
+      } catch (editError) {
+        const isMissingMessage =
+          editError?.code === 10008 ||
+          editError?.status === 404 ||
+          /Unknown Message|Unknown Channel/i.test(String(editError?.message || ""));
+
+        if (isMissingMessage) {
+          console.warn(
+            `Mensaje principal borrado al editar para guild=${guildId}. Se recreará. ID: ${settings.messageId}`,
+          );
+          settings.messageId = null;
+          await settings.save().catch(() => {});
+
+          const m = await channel.send({ embeds: [embed] });
+          settings.messageId = m.id;
+          await settings.save().catch(() => {});
+          console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
+        } else {
+          throw editError;
+        }
+      }
     } else {
       const m = await channel.send({ embeds: [embed] });
       settings.messageId = m.id;
@@ -446,12 +642,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     }
 
     // --- PROGRAMAR PRÓXIMA ACTUALIZACIÓN ---
-    // Limpiamos cualquier timeout previo para este servidor
     if (guildsTimeouts.has(guildId)) {
       clearTimeout(guildsTimeouts.get(guildId));
     }
 
-    // Buscamos el próximo hito de actualización: el próximo evento O la medianoche local
     const proximoEvento = eventos.find((e) => e.timestamp > ahora);
     const proximaMedianocheTz = tzTimestampFromComponents(
       nowTz.year,
@@ -462,7 +656,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       offset,
     );
 
-    // El bot se actualizará en el próximo evento o al cambio de día, lo que ocurra primero
     const proximoUpdate = proximoEvento
       ? Math.min(proximoEvento.timestamp, proximaMedianocheTz)
       : proximaMedianocheTz;
@@ -471,13 +664,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const MAX_DELAY = 24 * 60 * 60 * 1000;
     const finalDelay = Math.max(0, Math.min(delay, MAX_DELAY));
 
-    const timer = setTimeout(
-      () => actualizarMensaje(client, guildId),
-      finalDelay,
-    );
+    const timer = setTimeout(() => actualizarMensaje(client, guildId), finalDelay);
     guildsTimeouts.set(guildId, timer);
+    return true;
   } catch (err) {
     console.error("Error actualizarMensaje:", err);
+    return false;
   }
 }
 
@@ -514,6 +706,7 @@ function startAutoUpdate(client) {
 }
 
 client.on(Events.ClientReady, () => {
+  ensureDisplayModeMigration();
   startAutoUpdate(client);
 });
 
@@ -706,6 +899,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const horario = interaction.options.getString("horario");
       const fechaTexto = interaction.options.getString("fecha");
       const diaInput = interaction.options.getString("dia");
+      const repetir = interaction.options.getBoolean("repetir");
 
       // Validaciones de input
       if (!TIME_RE.test(horario)) {
@@ -789,12 +983,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (timestamp <= nowSec) timestamp += 24 * 60 * 60;
       }
 
+      // Determinar tipo de repetición: solo semanal si se indicó explícitamente
+      let repeatType = null;
+      if (repetir && diaInput) {
+        repeatType = "weekly";
+      }
+
       const id = await getNextEventId(interaction.guild.id);
       await EventModel.create({
         guildId: interaction.guild.id,
         id,
         nombre: nombre.toUpperCase(),
         timestamp,
+        repeat: repeatType,
         userId: interaction.user.id,
         username: interaction.user.username,
       });
@@ -810,9 +1011,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         : diaInput
           ? `${horario} (${diaInput})`
           : horario;
+      const infoRepite = repeatType ? ` • Repite: ${repeatType === 'daily' ? 'Diario' : 'Semanal'}` : '';
       return await replyAndDelete(
         interaction,
-        `✅ Evento (#${id}) • **${nombre.toUpperCase()}** • **${infoHorario}** • **AGREGADO**`,
+        `✅ Evento (#${id}) • **${nombre.toUpperCase()}** • **${infoHorario}**${infoRepite} • **AGREGADO**`,
       );
     }
 
@@ -903,11 +1105,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      try {
+        const ok = await actualizarMensaje(
+          interaction.client,
+          interaction.guild.id,
+          interaction.user.id,
+        );
+
+        if (!ok) {
+          return await replyAndDelete(
+            interaction,
+            "❌ No pude actualizar el mensaje principal. Revisá el canal o los permisos del bot.",
+          );
+        }
+      } catch (error) {
+        console.error("Error al actualizar mensaje desde /actualizar:", error);
+      }
+
       return await replyAndDelete(
         interaction,
         "✅ Mensaje de horarios **ACTUALIZADO**.",
@@ -1143,13 +1357,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const newDateInTZ = new Date(newDate.getTime() + offsetMs2);
       const dd = String(newDateInTZ.getUTCDate()).padStart(2, "0");
       const mm = String(newDateInTZ.getUTCMonth() + 1).padStart(2, "0");
+      const yyyy = String(newDateInTZ.getUTCFullYear());
       const hh = String(newDateInTZ.getUTCHours()).padStart(2, "0");
       const min = String(newDateInTZ.getUTCMinutes()).padStart(2, "0");
 
       if (changedName)
         details.push(`Nuevo nombre: **${evento.nombre.toUpperCase()}**`);
       if (changedDate)
-        details.push(`Nueva fecha: **${dd}-${mm} ${hh}:${min}**`);
+        details.push(`Nueva fecha: **${dd}/${mm}/${yyyy} ${hh}:${min}**`);
       else if (changedTime) details.push(`Nuevo horario: **${hh}:${min}**`);
 
       const base = `✅ Evento #${id} **EDITADO**`;

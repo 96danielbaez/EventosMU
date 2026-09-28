@@ -48,6 +48,12 @@ const commands = [
         .setName("dia")
         .setDescription("Día de la semana (Lunes, Martes...).")
         .setRequired(false),
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName("repetir")
+        .setDescription("Repetir automáticamente (si no indica día → diario; si indica día → semanal)")
+        .setRequired(false),
     ),
   // COMANDO PARA ELIMINAR EVENTOS INDIVIDUALES
   new SlashCommandBuilder()
