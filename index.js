@@ -22,6 +22,7 @@ const SettingsSchema = new mongoose.Schema({
   additionalText: String,
   lastUpdatedBy: String,
   embedColor: { type: String, default: "#AA151B" },
+  displayMode: { type: String, enum: ["all", "today_tomorrow"], default: "all" },
 });
 const Settings = mongoose.model("Settings", SettingsSchema);
 
@@ -283,14 +284,59 @@ function formatTiempoRestante(timestampSec, nowSec = Math.floor(Date.now() / 100
   return "menos de 1m";
 }
 
+const EVENT_HIDE_AFTER_SECONDS = 2 * 60 * 60;
+
+// Política de limpieza:
+// - En la vista hoy/mañana, ocultamos cualquier evento que ya estuvo expirado 2h.
+// - En la base, solo eliminamos eventos no repetidos que ya pasaron 2h.
+// - Los eventos repetidos NO se borran; quedan ocultos en la vista hasta que vuelvan a aparecer en su ciclo.
+function shouldHideExpiredEvent(
+  evento,
+  nowSec = Math.floor(Date.now() / 1000),
+  graceSeconds = EVENT_HIDE_AFTER_SECONDS,
+) {
+  if (!evento || evento.timestamp == null) return false;
+  if (evento.timestamp > nowSec) return false;
+  return nowSec - evento.timestamp >= graceSeconds;
+}
+
+function shouldDeleteExpiredEvent(
+  evento,
+  nowSec = Math.floor(Date.now() / 1000),
+  graceSeconds = EVENT_HIDE_AFTER_SECONDS,
+) {
+  if (!evento || evento.timestamp == null) return false;
+  // Si el evento se creó con "repetir", se oculta pero NO se borra.
+  if (evento.repeat) return false;
+  return shouldHideExpiredEvent(evento, nowSec, graceSeconds);
+}
+
 function generarEmbedHorarios(
   eventos,
   offset,
   additionalText,
   ianaZone = null,
   embedColor = "#AA151B",
+  displayMode = "all",
 ) {
   const ahora = Math.floor(Date.now() / 1000);
+
+  const today = tzComponentsFromTimestamp(ahora, offset);
+  const todayKey = `${today.year}-${String(today.month + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+  const tomorrowDate = new Date(Date.UTC(today.year, today.month, today.day + 1));
+  const tomorrowKey = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
+
+  const filteredEventos = eventos.filter((e) => {
+    if (displayMode !== "today_tomorrow") return true;
+
+    const comp = tzComponentsFromTimestamp(e.timestamp, offset);
+    const key = `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
+    const isWithinWindow = key === todayKey || key === tomorrowKey;
+    if (!isWithinWindow) return false;
+
+    // En la vista de hoy/mañana, ocultamos los que ya llevan 2h expirados.
+    return !shouldHideExpiredEvent(e, ahora);
+  });
 
   const embed = new EmbedBuilder().setColor(embedColor).setTitle("HORARIO BOSSES");
   let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
@@ -313,7 +359,7 @@ function generarEmbedHorarios(
 
   const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:t>`;
 
-  if (eventos.length === 0) {
+  if (filteredEventos.length === 0) {
     embed.setDescription(description + "\n" + footerRelativo);
     return embed;
   }
@@ -325,7 +371,7 @@ function generarEmbedHorarios(
 
   const fields = [];
   const groups = new Map();
-  for (const e of eventos) {
+  for (const e of filteredEventos) {
     const c = tzComponentsFromTimestamp(e.timestamp, offset);
     const key = `${c.year}-${String(c.month + 1).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
     if (!groups.has(key)) groups.set(key, { comp: c, items: [] });
@@ -352,8 +398,8 @@ function generarEmbedHorarios(
     const key = sortedKeys[gi];
     const { comp, items } = groups.get(key);
     const utcDate = new Date(Date.UTC(comp.year, comp.month, comp.day));
-    const dayName = dayNames[utcDate.getUTCDay()];
-    const headerName = `📅 ${dayName.toUpperCase()}`;
+    const dayName = dayNames[utcDate.getUTCDay()].toUpperCase();
+    const headerName = `📅 ${dayName}`;
 
     const lines = [];
     const formatRowFor = (e, arr) =>
@@ -376,10 +422,12 @@ function generarEmbedHorarios(
         .filter(Boolean)
         .join("\n");
 
-      const expirado = ahora > e.timestamp;
-      const nombreLine = e.nombre ? `**${e.nombre}**\n` : "";
-      const item = `${nombreLine}**[#${e.id}]** ${multiHora} - **<t:${e.timestamp}:t>** \n(<t:${e.timestamp}:R>)`;
-      const contenido = expirado ? `~~${item}~~` : item;
+      const titulo = displayMode === "today_tomorrow"
+        ? `**${e.nombre || "Evento"}**`
+        : e.nombre ? `[#${e.id}] **${e.nombre}**` : `[#${e.id}]`;
+      const horarioTexto = `${multiHora} - **<t:${e.timestamp}:t>**\n(<t:${e.timestamp}:R>)`;
+      const item = `${titulo}\n${horarioTexto}`;
+      const contenido = ahora > e.timestamp ? `~~${item}~~` : item;
       lines.push(contenido);
     }
 
@@ -417,7 +465,9 @@ function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = nu
     if (displayMode === "today_tomorrow") {
       const comp = tzComponentsFromTimestamp(e.timestamp, offset);
       const key = `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
-      return key === todayKey || key === tomorrowKey;
+      const isWithinWindow = key === todayKey || key === tomorrowKey;
+      if (!isWithinWindow) return false;
+      return !shouldHideExpiredEvent(e, ahora);
     }
     return true;
   });
@@ -457,8 +507,6 @@ function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = nu
     "Sábado",
   ];
 
-  const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪";
-
   for (let gi = 0; gi < sortedKeys.length; gi++) {
     const key = sortedKeys[gi];
     const { comp, items } = groups.get(key);
@@ -468,7 +516,9 @@ function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = nu
     out += `**${dayName}**\n`;
 
     for (const e of items) {
-      if (e.nombre) out += `**${e.nombre}**\n`;
+      const titulo = displayMode === "today_tomorrow"
+        ? `**${e.nombre || "Evento"}**`
+        : e.nombre ? `[#${e.id}] **${e.nombre}**` : `[#${e.id}]`;
       const formatRow = (arr) => arr
         .map((p) => {
           const hora = new Intl.DateTimeFormat("en-GB", {
@@ -483,7 +533,7 @@ function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = nu
       const top = paises.slice(0, 3);
       const bottom = paises.slice(3, 6);
       const multiHora = [formatRow(top), formatRow(bottom)].filter(Boolean).join("\n");
-      out += `[#${e.id}] ${multiHora} - <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n`;
+      out += `${titulo}\n${multiHora} - <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n`;
     }
 
     if (gi < sortedKeys.length - 1) out += `-# ${SEPARATOR}\n`;
@@ -576,6 +626,13 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         await ev.save();
       }
     }
+
+    // Limpieza real: borrar solo eventos no repetidos ya expirados 2h.
+    await EventModel.deleteMany({
+      guildId,
+      repeat: null,
+      timestamp: { $lt: ahora - EVENT_HIDE_AFTER_SECONDS },
+    });
   } catch (e) {
     console.error("Error rotando eventos antiguos:", e);
   }
@@ -785,7 +842,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal", "timezone", "resetear"];
+    const adminOnly = ["permisos", "canal", "timezone", "resetear", "mostrar"];
     const roleProtected = [
       "agregar",
       "editar",
@@ -983,10 +1040,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (timestamp <= nowSec) timestamp += 24 * 60 * 60;
       }
 
-      // Determinar tipo de repetición: solo semanal si se indicó explícitamente
+      // Determinar tipo de repetición: si se marcó "repetir",
+      // sin día = diario; con día = semanal.
       let repeatType = null;
-      if (repetir && diaInput) {
-        repeatType = "weekly";
+      if (repetir) {
+        repeatType = diaInput ? "weekly" : "daily";
       }
 
       const id = await getNextEventId(interaction.guild.id);
@@ -1092,6 +1150,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await replyAndDelete(
         interaction,
         `🌍 Configuración actualizada: **${found.name}** (UTC ${calculatedOffset >= 0 ? "+" : ""}${calculatedOffset}) ${flag}`,
+      );
+    }
+
+    // ================= /MOSTRAR =================
+    if (cmd === "mostrar") {
+      const modo = interaction.options.getString("modo");
+      const normalized = ["all", "today_tomorrow"].includes(modo) ? modo : "all";
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.displayMode = normalized;
+      await settings.save();
+
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
+
+      const label = normalized === "all" ? "Modo edición" : "Próximos";
+      return await replyAndDelete(
+        interaction,
+        `✅ Modo de visualización: **${label}**`,
       );
     }
 

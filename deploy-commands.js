@@ -141,6 +141,21 @@ const commands = [
     .setName("actualizar")
     .setDMPermission(false)
     .setDescription("Actualiza el mensaje de horarios en el canal designado."),
+  // COMANDO PARA SELECCIONAR TODOS O PRÓXIMOS
+  new SlashCommandBuilder()
+    .setName("mostrar")
+    .setDMPermission(false)
+    .setDescription("Elige si se muestran todos los eventos o solo los de hoy y mañana.")
+    .addStringOption((option) =>
+      option
+        .setName("modo")
+        .setDescription("Elige la vista del horario")
+        .setRequired(true)
+        .addChoices(
+          { name: "Todos", value: "all" },
+          { name: "Próximos (hoy y mañana)", value: "today_tomorrow" },
+        ),
+    ),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);
