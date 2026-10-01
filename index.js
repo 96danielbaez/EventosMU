@@ -1,5 +1,4 @@
 require("dotenv").config();
-const mongoose = require("mongoose");
 const {
   Client,
   GatewayIntentBits,
@@ -11,563 +10,50 @@ const {
   EmbedBuilder,
 } = require("discord.js");
 
-// ================= MONGOOSE MODELS =================
-const SettingsSchema = new mongoose.Schema({
-  guildId: { type: String, required: true, unique: true },
-  channelId: String,
-  timezone: { type: Number, default: 2 },
-  ianaZone: { type: String, default: "Europe/Madrid" },
-  roleId: String,
-  messageId: String,
-  additionalText: String,
-  lastUpdatedBy: String,
-  embedColor: { type: String, default: "#AA151B" },
-  displayMode: { type: String, enum: ["all", "today_tomorrow"], default: "all" },
+const {
+  Settings,
+  EventModel,
+  getSettings,
+  ensureDisplayModeMigration,
+  getNextEventId,
+} = require("./src/db");
+
+const {
+  TIME_RE,
+  DATE_RE,
+  TIMEZONES_LIST,
+  IANA_TO_COUNTRY_CODE,
+  replyAndDelete,
+  tzTimestampFromComponents,
+  tzComponentsFromTimestamp,
+  getFlagEmoji,
+  normalizeString,
+  getOffsetHours,
+  formatTimeWithFlag,
+} = require("./src/helpers");
+
+const {
+  generarEmbedHorarios,
+  generarEmbedProximo,
+} = require("./src/embeds");
+
+const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
+
+if (!BOT_TOKEN) {
+  console.error("❌ No se encontró el token del bot. Define DISCORD_TOKEN o TOKEN en .env");
+  process.exit(1);
+}
+
+// ================= CLIENT =================
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMembers,
+  ],
 });
-const Settings = mongoose.model("Settings", SettingsSchema);
 
-const EventSchema = new mongoose.Schema({
-  guildId: { type: String, required: true },
-  id: Number,
-  nombre: String,
-  timestamp: Number,
-  // repeat: 'daily' -> repetir cada 24h, 'weekly' -> repetir cada 7 días
-  repeat: { type: String, enum: ["daily", "weekly"], default: null },
-  userId: String,
-  username: String,
-});
-const EventModel = mongoose.model("Event", EventSchema);
-
-// ================= DATABASE CONNECTION =================
-
-const dns = require("dns");
-dns.setServers(["1.1.1.1"]);
-
-const dbUrl =
-  process.env.MONGO_URL ||
-  process.env.MONGO_URI ||
-  process.env.MONGODB_URL ||
-  process.env.MONGODB_URI;
-
-if (!dbUrl) {
-  console.error(
-    "❌ ERROR: No se encontró la variable MONGO_URL. Verificá la configuración en Railway.",
-  );
-} else {
-  mongoose
-    .connect(dbUrl)
-    .then(() => console.log("✅ Conectado exitosamente a MongoDB (Railway)"))
-    .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
-}
-
-// ================= HELPERS DB =================
-async function getSettings(guildId) {
-  let settings = await Settings.findOne({ guildId });
-  if (!settings) {
-    settings = await Settings.create({ guildId });
-  }
-  return settings;
-}
-
-async function ensureDisplayModeMigration() {
-  try {
-    await Settings.updateMany(
-      { displayMode: { $exists: false } },
-      { $set: { displayMode: "all" } },
-    );
-  } catch (err) {
-    console.error("Error migrando displayMode:", err);
-  }
-}
-
-async function getNextEventId(guildId) {
-  const events = await EventModel.find({ guildId })
-    .select("id")
-    .sort({ id: 1 });
-  const ids = events.map((e) => e.id);
-
-  let nextId = 1;
-  for (const id of ids) {
-    if (id === nextId) nextId++;
-    else if (id > nextId) break;
-  }
-  return nextId;
-}
-
-// Validaciones de formatos
-const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:mm
-const DATE_RE = /^([0-2]\d|3[0-1])-(0[1-9]|1[0-2])$/; // DD-MM
-const WEEKDAYS = {
-  lunes: 1,
-  martes: 2,
-  miercoles: 3,
-  miércoles: 3,
-  jueves: 4,
-  viernes: 5,
-  sabado: 6,
-  sábado: 6,
-  domingo: 0,
-};
-
-// ================= HELPER REPLY =================
-async function replyAndDelete(interaction, content) {
-  try {
-    // Color rojo para errores, eliminaciones o borrados
-    const isRed =
-      content.includes("❌") ||
-      content.includes("ELIMINADO") ||
-      content.includes("BORRADO");
-    // Color amarillo para comandos de configuración exitosos
-    const isConfig = ["canal", "permisos", "timezone"].includes(
-      interaction.commandName || "",
-    );
-    const isPublic = ["listar", "proximo"].includes(
-      interaction.commandName || "",
-    );
-
-    let color = 0x00ae86; // Verde (éxito por defecto)
-    if (isRed) color = 0xff0000;
-    else if (isConfig) color = 0xffcc00;
-
-    const embed = new EmbedBuilder().setDescription(content).setColor(color);
-
-    // Si la interacción ya fue diferida o respondida, usamos editReply
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ embeds: [embed] });
-    } else {
-      // Aunque deferReply ya se encarga de esto, lo mantenemos por si acaso
-      // se llama replyAndDelete sin un defer previo (ej. en un error no capturado antes).
-      await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
-    }
-    // Borrar mensaje si no es público o si es un mensaje de error/eliminación
-    if (!isPublic || isRed) {
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
-    }
-  } catch (err) {
-    console.error("Error en replyAndDelete:", err);
-  }
-}
-
-// ================= TIME HELPERS =================
-function tzTimestampFromComponents(year, month, day, hour, minute, offset) {
-  const offsetMs = Number(offset) * 60 * 60 * 1000;
-  const msUTC = Date.UTC(year, month, day, hour, minute, 0, 0);
-  const utcMs = msUTC - offsetMs;
-  return Math.floor(utcMs / 1000);
-}
-
-function tzComponentsFromTimestamp(timestampSec, offset) {
-  const offsetMs = Number(offset) * 60 * 60 * 1000;
-  const d = new Date(timestampSec * 1000);
-  const tzDate = new Date(d.getTime() + offsetMs);
-  return {
-    year: tzDate.getUTCFullYear(),
-    month: tzDate.getUTCMonth(),
-    day: tzDate.getUTCDate(),
-    hour: tzDate.getUTCHours(),
-    minute: tzDate.getUTCMinutes(),
-  };
-}
-
-// ================= PERMISOS =================
-async function tienePermiso(interaction) {
-  const settings = await getSettings(interaction.guild.id);
-  if (!settings.roleId) return true;
-  return interaction.member.roles.cache.has(settings.roleId);
-}
-
-// Lista de zonas horarias comunes para el autocompletado
-const TIMEZONES_LIST = [
-  {
-    name: "Argentina (Buenos Aires)",
-    value: "America/Argentina/Buenos_Aires",
-    color: "#74ACDF",
-  },
-  { name: "Bolivia (La Paz)", value: "America/La_Paz", color: "#007934" },
-  { name: "Brasil (São Paulo)", value: "America/Sao_Paulo", color: "#009739" },
-  { name: "Chile (Santiago)", value: "America/Santiago", color: "#0039A6" },
-  { name: "Colombia (Bogotá)", value: "America/Bogota", color: "#FCD116" },
-  { name: "Costa Rica", value: "America/Costa_Rica", color: "#EF1C27" },
-  { name: "Ecuador (Guayaquil)", value: "America/Guayaquil", color: "#FFD700" },
-  { name: "España (Madrid)", value: "Europe/Madrid", color: "#AA151B" },
-  {
-    name: "España (Islas Canarias)",
-    value: "Atlantic/Canary",
-    color: "#F9D616",
-  },
-  { name: "México (CDMX)", value: "America/Mexico_City", color: "#006847" },
-  { name: "México (Tijuana)", value: "America/Tijuana", color: "#006847" },
-  { name: "Paraguay (Asunción)", value: "America/Asuncion", color: "#D52B1E" },
-  { name: "Perú (Lima)", value: "America/Lima", color: "#D91023" },
-  {
-    name: "Uruguay (Montevideo)",
-    value: "America/Montevideo",
-    color: "#0038A8",
-  },
-  { name: "Venezuela (Caracas)", value: "America/Caracas", color: "#F2D500" },
-  {
-    name: "USA (New York - Este)",
-    value: "America/New_York",
-    color: "#B22234",
-  },
-  {
-    name: "USA (Los Angeles - Oeste)",
-    value: "America/Los_Angeles",
-    color: "#3C3B6E",
-  },
-];
-
-// Mapping from IANA timezone to ISO 3166-1 alpha-2 country code for flags
-const IANA_TO_COUNTRY_CODE = {
-  "America/Argentina/Buenos_Aires": "AR",
-  "America/La_Paz": "BO",
-  "America/Sao_Paulo": "BR",
-  "America/Santiago": "CL",
-  "America/Bogota": "CO",
-  "America/Costa_Rica": "CR",
-  "America/Guayaquil": "EC",
-  "Europe/Madrid": "ES",
-  "Atlantic/Canary": "ES", // Canary Islands are part of Spain
-  "America/Mexico_City": "MX",
-  "America/Tijuana": "MX",
-  "America/Asuncion": "PY",
-  "America/Lima": "PE",
-  "America/Montevideo": "UY",
-  "America/Caracas": "VE",
-  "America/New_York": "US",
-  "America/Los_Angeles": "US",
-};
-
-const PAISES_HORARIOS = [{ n: "ES", z: "Europe/Madrid", f: "" }];
-
-// Helper function to get flag emoji from ISO 3166-1 alpha-2 country code
-function getFlagEmoji(countryCode) {
-  if (!countryCode || countryCode.length !== 2) return "";
-  const codePoints = countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => 0x1f1e6 + (char.charCodeAt(0) - "A".charCodeAt(0)));
-  return String.fromCodePoint(...codePoints);
-}
-
-// Helper para normalizar texto (quitar tildes y convertir a minúsculas)
-function normalizeString(str) {
-  return str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function getOffsetHours(ianaZone) {
-  try {
-    const now = new Date();
-    const tzDate = new Date(
-      now.toLocaleString("en-US", { timeZone: ianaZone }),
-    );
-    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
-    return Math.round(
-      (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60),
-    );
-  } catch (e) {
-    return null;
-  }
-}
-
-function formatTiempoRestante(timestampSec, nowSec = Math.floor(Date.now() / 1000)) {
-  const diffSec = Math.max(0, timestampSec - nowSec);
-  const totalMinutes = Math.floor(diffSec / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours > 0) return `quedan ${hours}h ${minutes}m`;
-  if (minutes > 0) return `quedan ${minutes}m`;
-  return "menos de 1m";
-}
-
-const EVENT_HIDE_AFTER_SECONDS = 2 * 60 * 60;
-
-// Política de limpieza:
-// - En la vista hoy/mañana, ocultamos cualquier evento que ya estuvo expirado 2h.
-// - En la base, solo eliminamos eventos no repetidos que ya pasaron 2h.
-// - Los eventos repetidos NO se borran; quedan ocultos en la vista hasta que vuelvan a aparecer en su ciclo.
-function shouldHideExpiredEvent(
-  evento,
-  nowSec = Math.floor(Date.now() / 1000),
-  graceSeconds = EVENT_HIDE_AFTER_SECONDS,
-) {
-  if (!evento || evento.timestamp == null) return false;
-  if (evento.timestamp > nowSec) return false;
-  return nowSec - evento.timestamp >= graceSeconds;
-}
-
-function shouldDeleteExpiredEvent(
-  evento,
-  nowSec = Math.floor(Date.now() / 1000),
-  graceSeconds = EVENT_HIDE_AFTER_SECONDS,
-) {
-  if (!evento || evento.timestamp == null) return false;
-  // Si el evento se creó con "repetir", se oculta pero NO se borra.
-  if (evento.repeat) return false;
-  return shouldHideExpiredEvent(evento, nowSec, graceSeconds);
-}
-
-function generarEmbedHorarios(
-  eventos,
-  offset,
-  additionalText,
-  ianaZone = null,
-  embedColor = "#AA151B",
-  displayMode = "all",
-) {
-  const ahora = Math.floor(Date.now() / 1000);
-
-  const today = tzComponentsFromTimestamp(ahora, offset);
-  const todayKey = `${today.year}-${String(today.month + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-  const tomorrowDate = new Date(Date.UTC(today.year, today.month, today.day + 1));
-  const tomorrowKey = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
-
-  const filteredEventos = eventos.filter((e) => {
-    if (displayMode !== "today_tomorrow") return true;
-
-    const comp = tzComponentsFromTimestamp(e.timestamp, offset);
-    const key = `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
-    const isWithinWindow = key === todayKey || key === tomorrowKey;
-    if (!isWithinWindow) return false;
-
-    // En la vista de hoy/mañana, ocultamos los que ya llevan 2h expirados.
-    return !shouldHideExpiredEvent(e, ahora);
-  });
-
-  const embed = new EmbedBuilder().setColor(embedColor).setTitle("HORARIO BOSSES");
-  let locationDisplay = `UTC ${offset >= 0 ? "+" : ""}${offset}`;
-  let flagEmoji = "";
-  if (ianaZone) {
-    const zoneInfo = TIMEZONES_LIST.find((tz) => tz.value === ianaZone);
-    if (zoneInfo) locationDisplay = zoneInfo.name;
-    const countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
-    if (countryCode) {
-      flagEmoji = getFlagEmoji(countryCode);
-    }
-  }
-
-  let description = "";
-
-  const SEPARATOR = "▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪";
-  description += `\u200B \n`;
-
-  if (additionalText) description += `${additionalText}\n\n`;
-
-  const footerRelativo = `-# 🔄 Última actualización: <t:${ahora}:t>`;
-
-  if (filteredEventos.length === 0) {
-    embed.setDescription(description + "\n" + footerRelativo);
-    return embed;
-  }
-
-  const paises = PAISES_HORARIOS.map((p) => ({
-    ...p,
-    f: p.f || getFlagEmoji(IANA_TO_COUNTRY_CODE[p.z]) || "",
-  }));
-
-  const fields = [];
-  const groups = new Map();
-  for (const e of filteredEventos) {
-    const c = tzComponentsFromTimestamp(e.timestamp, offset);
-    const key = `${c.year}-${String(c.month + 1).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
-    if (!groups.has(key)) groups.set(key, { comp: c, items: [] });
-    groups.get(key).items.push(e);
-  }
-
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-    const ka = groups.get(a).items[0].timestamp;
-    const kb = groups.get(b).items[0].timestamp;
-    return ka - kb;
-  });
-
-  const dayNames = [
-    "Domingo",
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-  ];
-
-  for (let gi = 0; gi < sortedKeys.length; gi++) {
-    const key = sortedKeys[gi];
-    const { comp, items } = groups.get(key);
-    const utcDate = new Date(Date.UTC(comp.year, comp.month, comp.day));
-    const dayName = dayNames[utcDate.getUTCDay()].toUpperCase();
-    const headerName = `📅 ${dayName}`;
-
-    const lines = [];
-    const formatRowFor = (e, arr) =>
-      arr
-        .map((p) => {
-          const hora = new Intl.DateTimeFormat("en-GB", {
-            timeZone: p.z,
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(e.timestamp * 1000));
-          return p.f ? `${p.f} ${hora}` : hora;
-        })
-        .join("  |  ");
-
-    for (let idx = 0; idx < items.length; idx++) {
-      const e = items[idx];
-      const top = paises.slice(0, 3);
-      const bottom = paises.slice(3, 6);
-      const multiHora = [formatRowFor(e, top), formatRowFor(e, bottom)]
-        .filter(Boolean)
-        .join("\n");
-
-      const titulo = displayMode === "today_tomorrow"
-        ? `**${e.nombre || "Evento"}**`
-        : e.nombre ? `[#${e.id}] **${e.nombre}**` : `[#${e.id}]`;
-      const horarioTexto = `${multiHora} - **<t:${e.timestamp}:t>**\n(<t:${e.timestamp}:R>)`;
-      const item = `${titulo}\n${horarioTexto}`;
-      const contenido = ahora > e.timestamp ? `~~${item}~~` : item;
-      lines.push(contenido);
-    }
-
-    let value = lines.join("\n\u200A\n");
-    if (gi < sortedKeys.length - 1) {
-      value = value + "\n" + `-# ${SEPARATOR}`;
-    }
-    fields.push({ name: headerName, value, inline: false });
-  }
-
-  fields.push({ name: "\u200B", value: footerRelativo });
-
-  embed.addFields(fields);
-  embed.setDescription(description);
-  return embed;
-}
-
-function generarContenidoHorarios(eventos, offset, additionalText, ianaZone = null, displayMode = "all") {
-  const ahora = Math.floor(Date.now() / 1000);
-  let out = "";
-  if (additionalText) out += `${additionalText}\n\n`;
-
-  if (!eventos || eventos.length === 0) {
-    out += "No hay eventos cargados\n";
-    out += `Última actualización: <t:${ahora}:t>`;
-    return out;
-  }
-
-  const today = tzComponentsFromTimestamp(ahora, offset);
-  const todayKey = `${today.year}-${String(today.month + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-  const tomorrowDate = new Date(Date.UTC(today.year, today.month, today.day + 1));
-  const tomorrowKey = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
-
-  const filteredEventos = eventos.filter((e) => {
-    if (displayMode === "today_tomorrow") {
-      const comp = tzComponentsFromTimestamp(e.timestamp, offset);
-      const key = `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
-      const isWithinWindow = key === todayKey || key === tomorrowKey;
-      if (!isWithinWindow) return false;
-      return !shouldHideExpiredEvent(e, ahora);
-    }
-    return true;
-  });
-
-  if (!filteredEventos.length) {
-    out += "No hay eventos para hoy ni mañana\n";
-    out += `Última actualización: <t:${ahora}:t>`;
-    return out;
-  }
-
-  const paises = PAISES_HORARIOS.map((p) => ({
-    ...p,
-    f: p.f || getFlagEmoji(IANA_TO_COUNTRY_CODE[p.z]) || "",
-  }));
-
-  const groups = new Map();
-  for (const e of filteredEventos) {
-    const c = tzComponentsFromTimestamp(e.timestamp, offset);
-    const key = `${c.year}-${String(c.month + 1).padStart(2, "0")}-${String(c.day).padStart(2, "0")}`;
-    if (!groups.has(key)) groups.set(key, { comp: c, items: [] });
-    groups.get(key).items.push(e);
-  }
-
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-    const ka = groups.get(a).items[0].timestamp;
-    const kb = groups.get(b).items[0].timestamp;
-    return ka - kb;
-  });
-
-  const dayNames = [
-    "Domingo",
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-  ];
-
-  for (let gi = 0; gi < sortedKeys.length; gi++) {
-    const key = sortedKeys[gi];
-    const { comp, items } = groups.get(key);
-    const utcDate = new Date(Date.UTC(comp.year, comp.month, comp.day));
-    const dayName = dayNames[utcDate.getUTCDay()].toUpperCase();
-
-    out += `**${dayName}**\n`;
-
-    for (const e of items) {
-      const titulo = displayMode === "today_tomorrow"
-        ? `**${e.nombre || "Evento"}**`
-        : e.nombre ? `[#${e.id}] **${e.nombre}**` : `[#${e.id}]`;
-      const formatRow = (arr) => arr
-        .map((p) => {
-          const hora = new Intl.DateTimeFormat("en-GB", {
-            timeZone: p.z,
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(e.timestamp * 1000));
-          return p.f ? `${p.f} ${hora}` : hora;
-        })
-        .join("  |  ");
-
-      const top = paises.slice(0, 3);
-      const bottom = paises.slice(3, 6);
-      const multiHora = [formatRow(top), formatRow(bottom)].filter(Boolean).join("\n");
-      out += `${titulo}\n${multiHora} - <t:${e.timestamp}:t> (<t:${e.timestamp}:R>)\n`;
-    }
-
-    if (gi < sortedKeys.length - 1) out += `-# ${SEPARATOR}\n`;
-    out += "\n";
-  }
-
-  out += `Última actualización: <t:${ahora}:t>`;
-  return out;
-}
-
-function generarEmbedProximo(evento, embedColor = "#AA151B") {
-  const embed = new EmbedBuilder().setColor(embedColor);
-
-  if (!evento) {
-    embed.setTitle("PRÓXIMO EVENTO");
-    embed.setDescription("😴 **No hay eventos cargados**");
-    return embed;
-  }
-
-  const primerPais = PAISES_HORARIOS[0];
-  const primerHora = new Intl.DateTimeFormat("en-GB", {
-    timeZone: primerPais?.z || "Europe/Madrid",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(evento.timestamp * 1000));
-
-  embed.setTitle("PRÓXIMO EVENTO");
-  embed.setDescription(
-    `**${evento.nombre}**\n**${primerHora}** (<t:${evento.timestamp}:R>)`,
-  );
-  return embed;
-}
-
-// Control de temporizadores por servidor
+// ================= CONTROL DE TEMPORIZADORES =================
 const guildsTimeouts = new Map();
 
 // ================= MENSAJE =================
@@ -594,7 +80,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   const offset = settings.timezone;
   const nowTz = tzComponentsFromTimestamp(ahora, offset);
 
-  // Calcular el inicio del día actual (00:00) en la zona horaria del servidor
   const inicioDelDiaTz = tzTimestampFromComponents(
     nowTz.year,
     nowTz.month,
@@ -604,9 +89,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     offset,
   );
 
-  // Rotar o eliminar automáticamente eventos de días anteriores
-  // Para eventos repetidos, actualizamos su timestamp hacia adelante en bloques
-  // (24h para 'daily', 7 días para 'weekly'). Los no repetidos se eliminan.
   try {
     const oldEvents = await EventModel.find({
       guildId,
@@ -627,11 +109,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       }
     }
 
-    // Limpieza real: borrar solo eventos no repetidos ya expirados 2h.
     await EventModel.deleteMany({
       guildId,
       repeat: null,
-      timestamp: { $lt: ahora - EVENT_HIDE_AFTER_SECONDS },
+      timestamp: { $lt: ahora - 2 * 60 * 60 },
     });
   } catch (e) {
     console.error("Error rotando eventos antiguos:", e);
@@ -685,7 +166,7 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
           const m = await channel.send({ embeds: [embed] });
           settings.messageId = m.id;
-          await settings.save().catch(() => {});
+          await settings.save();
           console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
         } else {
           throw editError;
@@ -698,7 +179,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
     }
 
-    // --- PROGRAMAR PRÓXIMA ACTUALIZACIÓN ---
     if (guildsTimeouts.has(guildId)) {
       clearTimeout(guildsTimeouts.get(guildId));
     }
@@ -730,25 +210,17 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 }
 
-// ================= CLIENT =================
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMembers,
-  ],
-});
+// ================= PERMISOS =================
+async function tienePermiso(interaction) {
+  const settings = await getSettings(interaction.guild.id);
+  if (!settings.roleId) return true;
+  return interaction.member.roles.cache.has(settings.roleId);
+}
 
-client.once(Events.ClientReady, () => {
-  console.log(`Conectado como ${client.user.tag}`);
-});
-
-// ================= ACTUALIZACIÓN PERIÓDICA =================
+// ================= AUTOUPDATE =================
 function startAutoUpdate(client) {
-  console.log(`Iniciando sistema de actualización automática por eventos...`);
+  console.log("Iniciando sistema de actualización automática por eventos...");
 
-  // Al arrancar, disparamos una actualización inicial para cada servidor configurado
-  // Esto activará la cadena de temporizadores basados en el próximo evento.
   Settings.find({ channelId: { $exists: true } })
     .then((allSettings) => {
       for (const s of allSettings) {
@@ -762,15 +234,18 @@ function startAutoUpdate(client) {
     );
 }
 
+client.once(Events.ClientReady, () => {
+  console.log(`Conectado como ${client.user.tag}`);
+});
+
 client.on(Events.ClientReady, () => {
   ensureDisplayModeMigration();
   startAutoUpdate(client);
 });
 
-// ================= INTERACCIONES (UN SOLO HANDLER) =================
+// ================= INTERACCIONES =================
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // ================= AUTOCOMPLETE =================
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === "timezone") {
         const focusedValue = normalizeString(interaction.options.getFocused());
@@ -778,7 +253,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           (tz) =>
             normalizeString(tz.name).includes(focusedValue) ||
             normalizeString(tz.value).includes(focusedValue),
-        ).slice(0, 25); // Discord permite máx 25 opciones
+        ).slice(0, 25);
 
         await interaction.respond(
           filtered.map((tz) => ({ name: tz.name, value: tz.value })),
@@ -787,7 +262,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // ================= BUTTONS =================
     if (interaction.isButton()) {
       if (interaction.customId === "confirm_reset") {
         await interaction.deferUpdate();
@@ -804,7 +278,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
-          .setColor(0xff0000); // Rojo para indicar que se borró todo
+          .setColor(0xff0000);
         await interaction.editReply({
           content: null,
           embeds: [embed],
@@ -832,17 +306,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // ================= COMMAND =================
     const cmd = interaction.commandName;
 
-    // Diferimos la respuesta inmediatamente para evitar el timeout de 3 segundos
-    // Si es el comando 'listar' o 'proximo', lo hacemos público (ephemeral: false)
     if (interaction.isChatInputCommand()) {
       const isPublic = ["listar", "proximo"].includes(cmd);
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal", "timezone", "resetear", "mostrar"];
+    const adminOnly = ["permisos", "canal", "timezone", "resetear", "mostrar", "color"];
     const roleProtected = [
       "agregar",
       "editar",
@@ -851,7 +322,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "configuracion",
     ];
 
-    // ================= ADMIN CHECK (FIX IMPORTANTE) =================
     if (adminOnly.includes(cmd)) {
       const isOwner = interaction.guild.ownerId === interaction.user.id;
       const isAdmin = interaction.member.permissions.has(
@@ -866,7 +336,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    // ================= ROLE CHECK =================
     if (roleProtected.includes(cmd)) {
       if (!(await tienePermiso(interaction))) {
         return await replyAndDelete(
@@ -876,15 +345,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    // ================= /PERMISOS =================
     if (cmd === "permisos") {
       const rol = interaction.options.getRole("rol");
-
       if (!rol) {
-        return await replyAndDelete(
-          interaction,
-          "❌ Debés seleccionar un rol válido.",
-        );
+        return await replyAndDelete(interaction, "❌ Debés seleccionar un rol válido.");
       }
 
       const settings = await getSettings(interaction.guild.id);
@@ -896,10 +360,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
-    // ================= /CANAL =================
     if (cmd === "canal") {
       const canal = interaction.options.getChannel("canal");
-
       if (!canal) {
         return await replyAndDelete(interaction, "❌ Canal inválido.");
       }
@@ -908,12 +370,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       settings.channelId = canal.id;
       await settings.save();
 
-      // Actualizar el mensaje principal automáticamente al cambiar el canal
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       return await replyAndDelete(
         interaction,
@@ -921,7 +378,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
-    // ================= /RESET =================
     if (cmd === "resetear") {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -934,14 +390,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setStyle(ButtonStyle.Secondary),
       );
 
-      const settings = await getSettings(interaction.guild.id);
-      const targetChannelId = settings.channelId;
-      const isDifferentChannel =
-        targetChannelId && interaction.channelId !== targetChannelId;
-
       const embed = new EmbedBuilder()
         .setDescription("¿ESTÁS SEGURO? •⚠️")
-        .setColor(0xffcc00); // Color amarillo para advertencia
+        .setColor(0xffcc00);
       await interaction.editReply({
         embeds: [embed],
         components: [row],
@@ -950,7 +401,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
-    // ================= /AGREGAR =================
     if (cmd === "agregar") {
       const nombre = interaction.options.getString("nombre");
       const horario = interaction.options.getString("horario");
@@ -958,7 +408,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const diaInput = interaction.options.getString("dia");
       const repetir = interaction.options.getBoolean("repetir");
 
-      // Validaciones de input
       if (!TIME_RE.test(horario)) {
         return await replyAndDelete(
           interaction,
@@ -990,65 +439,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const offset = settings.timezone;
       const [h, m] = horario.split(":").map(Number);
-
-      // Calcular timestamp en UTC a partir de componentes en TZ
       const nowSec = Math.floor(Date.now() / 1000);
       const nowTz = tzComponentsFromTimestamp(nowSec, offset);
 
       let year = nowTz.year;
       let month = nowTz.month;
       let day = nowTz.day;
-
       let timestamp;
 
       if (fechaTexto) {
         const [dia, mes] = fechaTexto.split("-").map(Number);
-        month = mes - 1;
-        day = dia;
-        timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
-      } else if (diaInput) {
-        const targetIndex = WEEKDAYS[diaInput.toLowerCase()];
-        if (targetIndex === undefined) {
-          return await replyAndDelete(
-            interaction,
-            "❌ Día de la semana inválido. Usá Lunes, Martes, etc.",
-          );
-        }
-
-        const currentTzDate = new Date(
-          Date.UTC(nowTz.year, nowTz.month, nowTz.day),
-        );
-        const currentDayIndex = currentTzDate.getUTCDay();
-        let daysToAdd = (targetIndex - currentDayIndex + 7) % 7;
-
-        timestamp = tzTimestampFromComponents(
-          year,
-          month,
-          day + daysToAdd,
-          h,
-          m,
-          offset,
-        );
-
-        // Si es hoy y ya pasó el horario, saltamos a la semana que viene
-        if (daysToAdd === 0 && timestamp <= nowSec) {
-          timestamp += 7 * 24 * 60 * 60;
-        }
+        const targetDate = new Date(Date.UTC(year, mes - 1, dia, h, m));
+        timestamp = Math.floor(targetDate.getTime() / 1000);
       } else {
         timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
-        // Si no se pasó fecha/día y ya pasó hoy → mañana
-        if (timestamp <= nowSec) timestamp += 24 * 60 * 60;
       }
 
-      // Determinar tipo de repetición: si se marcó "repetir",
-      // sin día = diario; con día = semanal.
       let repeatType = null;
       if (repetir) {
         repeatType = diaInput ? "weekly" : "daily";
       }
 
       const id = await getNextEventId(interaction.guild.id);
-      await EventModel.create({
+      const evento = new EventModel({
         guildId: interaction.guild.id,
         id,
         nombre: nombre.toUpperCase(),
@@ -1058,32 +471,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         username: interaction.user.username,
       });
 
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await evento.save();
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
-      const infoHorario = fechaTexto
-        ? `${horario} (${fechaTexto})`
-        : diaInput
-          ? `${horario} (${diaInput})`
-          : horario;
-      const infoRepite = repeatType ? ` • Repite: ${repeatType === 'daily' ? 'Diario' : 'Semanal'}` : '';
       return await replyAndDelete(
         interaction,
-        `✅ Evento (#${id}) • **${nombre.toUpperCase()}** • **${infoHorario}**${infoRepite} • **AGREGADO**`,
+        `✅ Evento #${id} **AGREGADO**: **${nombre.toUpperCase()}**`,
       );
     }
 
-    // ================= /ELIMINAR =================
     if (cmd === "eliminar") {
       const id = interaction.options.getInteger("id");
 
       if (!Number.isInteger(id) || id <= 0) {
         return await replyAndDelete(
           interaction,
-          `❌ ID inválido. Debe ser un número entero positivo.`,
+          "❌ ID inválido. Debe ser un número entero positivo.",
         );
       }
 
@@ -1096,22 +499,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
       }
 
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       return await replyAndDelete(
         interaction,
         `✅ EVENTO #${id} **ELIMINADO**`,
       );
     }
-    // ================= /TIMEZONE =================
+
     if (cmd === "timezone") {
       const ianaZoneInput = interaction.options.getString("zona");
-
-      // Buscar en la lista de zonas permitidas (mismo sistema que /horario)
       const found = TIMEZONES_LIST.find(
         (tz) =>
           tz.value === ianaZoneInput ||
@@ -1136,15 +533,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.timezone = calculatedOffset;
       settings.ianaZone = found.value;
-      if (found.color) settings.embedColor = found.color;
       await settings.save();
 
-      // Actualizar el mensaje principal automáticamente
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
       return await replyAndDelete(
@@ -1153,7 +544,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
-    // ================= /MOSTRAR =================
+    if (cmd === "color") {
+      const colorInput = interaction.options.getString("color") || "";
+      const normalized = colorInput.trim();
+      const validHex = /^#([0-9A-Fa-f]{6})$/.test(normalized);
+
+      if (!validHex) {
+        return await replyAndDelete(
+          interaction,
+          "❌ El color debe tener formato hexadecimal como #6c04f3",
+        );
+      }
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.embedColor = normalized;
+      await settings.save();
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+
+      return await replyAndDelete(
+        interaction,
+        `✅ Color del embed actualizado: **${normalized}**`,
+      );
+    }
+
     if (cmd === "mostrar") {
       const modo = interaction.options.getString("modo");
       const normalized = ["all", "today_tomorrow"].includes(modo) ? modo : "all";
@@ -1162,11 +575,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       settings.displayMode = normalized;
       await settings.save();
 
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       const label = normalized === "all" ? "Modo edición" : "Próximos";
       return await replyAndDelete(
@@ -1175,7 +584,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
-    // ================= /ACTUALIZAR =================
     if (cmd === "actualizar") {
       const settings = await getSettings(interaction.guild.id);
       if (!settings.channelId) {
@@ -1208,11 +616,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
-    // ================= /CONFIGURACION =================
     if (cmd === "configuracion") {
       const settings = await getSettings(interaction.guild.id);
-
-      // Buscar el nombre amigable y la bandera de la zona configurada
       const zoneInfo = TIMEZONES_LIST.find(
         (tz) => tz.value === settings.ianaZone,
       );
@@ -1223,13 +628,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle("⚙️ Configuración Actual")
-        .setColor(settings.embedColor || "#AA151B")
+        .setColor(settings.embedColor || "#6c04f3")
         .addFields(
           {
             name: "📍 Canal de Eventos",
-            value: settings.channelId
-              ? `<#${settings.channelId}>`
-              : "No configurado",
+            value: settings.channelId ? `<#${settings.channelId}>` : "No configurado",
             inline: true,
           },
           {
@@ -1239,14 +642,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
           },
           {
             name: "🛡️ Rol con Permisos",
-            value: settings.roleId
-              ? `<@&${settings.roleId}>`
-              : "Todos (propietario/admin)",
+            value: settings.roleId ? `<@&${settings.roleId}>` : "Todos (propietario/admin)",
             inline: true,
           },
           {
             name: "🎨 Color (Zona)",
-            value: `**${settings.embedColor || "#AA151B"}**`,
+            value: `**${settings.embedColor || "#6c04f3"}**`,
             inline: true,
           },
           {
@@ -1260,26 +661,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
-    // ================= /MENSAJE =================
     if (cmd === "mensaje") {
       const texto = interaction.options.getString("mensaje") || "";
 
       const settings = await getSettings(interaction.guild.id);
       settings.additionalText = texto || undefined;
       await settings.save();
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
       return await replyAndDelete(
         interaction,
-        texto ? `✅ Mensaje **AGREGADO**.` : `✅ Mensaje **BORRADO**.`,
+        texto ? "✅ Mensaje **AGREGADO**." : "✅ Mensaje **BORRADO**.",
       );
     }
 
-    // ================= /PROXIMO =================
     if (cmd === "proximo") {
       const ahora = Math.floor(Date.now() / 1000);
       const guildId = interaction.guild.id;
@@ -1293,33 +688,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (!evento) {
         const embed = new EmbedBuilder()
-          .setColor(settings.embedColor || "#AA151B")
+          .setColor(settings.embedColor || "#6c04f3")
           .setTitle("PRÓXIMO EVENTO")
           .setDescription("😴 **No hay próximos eventos cargados**");
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const embed = generarEmbedProximo(evento, settings.embedColor);
+      const embed = generarEmbedProximo(evento, settings.embedColor, settings.ianaZone || "Europe/Madrid");
       await interaction.editReply({ embeds: [embed] });
       return;
     }
-    // ================= /EDITAR =================
+
     if (cmd === "editar") {
       const id = interaction.options.getInteger("id");
       const nombre = interaction.options.getString("nombre");
       const horario = interaction.options.getString("horario");
       const fechaTexto = interaction.options.getString("fecha");
 
-      // Validar id
       if (!Number.isInteger(id) || id <= 0) {
         return await replyAndDelete(
           interaction,
-          `❌ ID inválido. Debe ser un número entero positivo.`,
+          "❌ ID inválido. Debe ser un número entero positivo.",
         );
       }
 
-      // Validar formatos si se pasaron
       if (horario && !TIME_RE.test(horario)) {
         return await replyAndDelete(
           interaction,
@@ -1358,9 +751,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const settings = await getSettings(interaction.guild.id);
         const offset = settings.timezone;
 
-        // Si no se pasa `fecha`, usamos la fecha ACTUAL en la TZ del servidor
-        // para que editar sólo el horario aplique al día de hoy (o mañana
-        // si el horario ya pasó). Si se pasa `fecha`, se sobrescribe abajo.
         const nowSec = Math.floor(Date.now() / 1000);
         const base = tzComponentsFromTimestamp(nowSec, offset);
 
@@ -1370,7 +760,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         let hours = base.hour;
         let minutes = base.minute;
 
-        // Si se pasó fecha, reemplazar día/mes (validar formato DD-MM)
         if (fechaTexto) {
           const parts = fechaTexto.split("-").map(Number);
           if (
@@ -1396,14 +785,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
           }
         }
 
-        // Si se pasó horario, reemplazar horas/minutos
         if (horario) {
           const [h, m] = horario.split(":").map(Number);
           hours = h;
           minutes = m;
         }
 
-        // Crear nuevo timestamp (UTC) a partir de componentes en TZ
         evento.timestamp = tzTimestampFromComponents(
           year,
           month,
@@ -1413,22 +800,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           offset,
         );
 
-        // Si no se pasó fecha y el nuevo horario ya pasó respecto a ahora, mover al siguiente día
         if (!fechaTexto) {
-          const nowSec = Math.floor(Date.now() / 1000);
-          if (evento.timestamp <= nowSec) evento.timestamp += 24 * 60 * 60;
+          const nowSec2 = Math.floor(Date.now() / 1000);
+          if (evento.timestamp <= nowSec2) evento.timestamp += 24 * 60 * 60;
         }
         changedDate = true;
       }
 
       await evento.save();
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
-      // Preparar mensaje de confirmación con detalles
       const details = [];
       const settings = await getSettings(interaction.guild.id);
       const offsetMsg = settings.timezone;
@@ -1455,24 +836,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await replyAndDelete(interaction, message);
     }
 
-    // ================= /LISTAR =================
     if (cmd === "listar") {
-      // Forzamos la obtención del miembro desde la API para asegurar datos de voz actualizados
       const member = await interaction.guild.members
         .fetch(interaction.user.id)
         .catch(() => interaction.member);
       const voiceChannel = member?.voice?.channel;
 
       if (!voiceChannel) {
-        return await replyAndDelete(
-          interaction,
-          "❌ No estás en un canal de voz.",
-        );
+        return await replyAndDelete(interaction, "❌ No estás en un canal de voz.");
       }
 
       const members = Array.from(voiceChannel.members.values());
 
-      // Mezclar aleatoriamente (Fisher-Yates)
       for (let i = members.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [members[i], members[j]] = [members[j], members[i]];
@@ -1492,7 +867,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
 
       const content = "```\n" + lines.join("\n") + "\n```";
-
       return await interaction.editReply({ content });
     }
   } catch (err) {
@@ -1506,4 +880,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-client.login(process.env.TOKEN);
+client.login(BOT_TOKEN.trim().replace(/^['"]|['"]$/g, ""));

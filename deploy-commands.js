@@ -156,6 +156,17 @@ const commands = [
           { name: "Próximos (hoy y mañana)", value: "today_tomorrow" },
         ),
     ),
+  // COMANDO PARA CAMBIAR EL COLOR DEL EMBED
+  new SlashCommandBuilder()
+    .setName("color")
+    .setDMPermission(false)
+    .setDescription("Configura el color manual del embed.")
+    .addStringOption((option) =>
+      option
+        .setName("color")
+        .setDescription("Color hex del embed (ej: #6c04f3)")
+        .setRequired(true),
+    ),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);
