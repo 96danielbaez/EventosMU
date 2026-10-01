@@ -26,22 +26,23 @@ function getDayNameFromKey(key) {
   return DAY_NAMES[utcDate.getUTCDay()].toUpperCase();
 }
 
-function buildEventText(evento, ahora, ianaZone) {
+function buildEventText(evento, ahora, ianaZone, displayMode = "all") {
   const displayZone = ianaZone || "Europe/Madrid";
   const horaDisplay = formatTimeWithFlag(evento.timestamp, displayZone);
-  const titulo = evento.nombre ? `**${evento.nombre}**` : "**Evento**";
+  const idPart = displayMode === "all" ? `[#${evento.id}] ` : "";
+  const titulo = evento.nombre ? `**${idPart}${evento.nombre}**` : `**${idPart}Evento**`;
   const horarioTexto = `${horaDisplay} - **<t:${evento.timestamp}:t>**\n(<t:${evento.timestamp}:R>)`;
   const text = `${titulo}\n${horarioTexto}`;
   return ahora > evento.timestamp ? `~~${text}~~` : text;
 }
 
-function buildDayBlock(dayName, items, ahora, ianaZone) {
-  const eventLines = items.map((evento) => buildEventText(evento, ahora, ianaZone));
+function buildDayBlock(dayName, items, ahora, ianaZone, displayMode = "all") {
+  const eventLines = items.map((evento) => buildEventText(evento, ahora, ianaZone, displayMode));
   const value = eventLines
     .map((line, index) => `${line}${index < eventLines.length - 1 ? "\n\n" : ""}`)
     .join("");
 
-  return `**${dayName}**\n■■■■■■■■■■■■■■■■■■■${value ? `\n${value}` : ""}`;
+  return `**${dayName}**\n■■■■■■■■■■■■■■■■■■■${value ? `\n${value}` : ""}`;  
 }
 
 function agruparEventosPorDia(eventos, offset, ahora, displayMode) {
@@ -104,7 +105,7 @@ function generarEmbedHorarios(
   }
 
   for (const group of groups) {
-    const value = buildDayBlock(group.dayName, group.items, ahora, ianaZone);
+    const value = buildDayBlock(group.dayName, group.items, ahora, ianaZone, displayMode);
     fields.push({ name: "\u200B", value, inline: false });
   }
 
@@ -145,7 +146,8 @@ function generarContenidoHorarios(
 
     for (const evento of group.items) {
       const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone || "Europe/Madrid");
-      const titulo = evento.nombre ? `**${evento.nombre}**` : "**Evento**";
+      const idPart = displayMode === "all" ? `${evento.id} ` : "";
+      const titulo = evento.nombre ? `${idPart}${evento.nombre}` : `${idPart}Evento`;
       out += `${titulo}\n${horaDisplay} - <t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>)\n\n`;
     }
 

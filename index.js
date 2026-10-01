@@ -455,6 +455,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
       }
 
+      // Si la hora ya pasó, agregar el evento para el próximo día
+      if (timestamp < nowSec) {
+        timestamp += 24 * 60 * 60; // Agregar 24 horas
+      }
+
       let repeatType = null;
       if (repetir) {
         repeatType = diaInput ? "weekly" : "daily";
