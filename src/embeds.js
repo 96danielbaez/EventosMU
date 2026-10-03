@@ -58,6 +58,7 @@ function agruparEventosPorDia(eventos, offset, ahora, displayMode) {
     const isWithinRange = key === todayKey || key === tomorrowKey;
     if (!isWithinRange) return false;
 
+    // Ocultar eventos que pasaron hace 2+ horas
     return !shouldHideExpiredEvent(evento, ahora);
   });
 
