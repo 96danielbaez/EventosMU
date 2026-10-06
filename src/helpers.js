@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 
-const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const TIME_RE = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):([0-5]\d)$/;
 const DATE_RE = /^([0-2]\d|3[0-1])-(0[1-9]|1[0-2])$/;
 
 const TIMEZONES_LIST = [
@@ -56,6 +56,48 @@ const WEEKDAYS = {
 };
 
 const EVENT_HIDE_AFTER_SECONDS = 2 * 60 * 60;
+
+function getWeekdayNumberFromText(dayText) {
+  if (dayText == null) return null;
+
+  const normalized = normalizeString(String(dayText).trim());
+  for (const [name, value] of Object.entries(WEEKDAYS)) {
+    if (normalizeString(name) === normalized) return value;
+  }
+
+  return null;
+}
+
+function getNextWeeklyTimestamp(targetWeekday, hour, minute, nowSec, offset) {
+  if (targetWeekday == null) return null;
+
+  const nowTz = tzComponentsFromTimestamp(nowSec, offset);
+
+  const currentWeekday = new Date(
+    Date.UTC(nowTz.year, nowTz.month, nowTz.day),
+  ).getUTCDay();
+
+  let daysToAdd = (targetWeekday - currentWeekday + 7) % 7;
+  const sameDayCandidate = tzTimestampFromComponents(
+    nowTz.year,
+    nowTz.month,
+    nowTz.day,
+    hour,
+    minute,
+    offset,
+  );
+
+  if (daysToAdd === 0 && sameDayCandidate <= nowSec) daysToAdd = 7;
+
+  return tzTimestampFromComponents(
+    nowTz.year,
+    nowTz.month,
+    nowTz.day + daysToAdd,
+    hour,
+    minute,
+    offset,
+  );
+}
 
 async function replyAndDelete(interaction, content) {
   try {
@@ -129,13 +171,42 @@ function normalizeString(str) {
 function getOffsetHours(ianaZone) {
   try {
     const now = new Date();
-    const tzDate = new Date(
-      now.toLocaleString("en-US", { timeZone: ianaZone }),
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(now);
+    const values = {};
+    for (const part of parts) {
+      if (part.type !== "literal") values[part.type] = part.value;
+    }
+
+    const wallClockMs = Date.UTC(
+      Number(values.year),
+      Number(values.month) - 1,
+      Number(values.day),
+      Number(values.hour),
+      Number(values.minute),
+      Number(values.second),
     );
-    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
-    return Math.round(
-      (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60),
+
+    const utcNowMs = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      now.getUTCSeconds(),
     );
+
+    return Math.round((wallClockMs - utcNowMs) / (60 * 60 * 1000));
   } catch (e) {
     return null;
   }
@@ -192,6 +263,8 @@ module.exports = {
   TIMEZONES_LIST,
   IANA_TO_COUNTRY_CODE,
   EVENT_HIDE_AFTER_SECONDS,
+  getWeekdayNumberFromText,
+  getNextWeeklyTimestamp,
   replyAndDelete,
   tzTimestampFromComponents,
   tzComponentsFromTimestamp,

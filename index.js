@@ -30,6 +30,8 @@ const {
   normalizeString,
   getOffsetHours,
   formatTimeWithFlag,
+  getWeekdayNumberFromText,
+  getNextWeeklyTimestamp,
 } = require("./src/helpers");
 
 const {
@@ -38,13 +40,91 @@ const {
 } = require("./src/embeds");
 
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
+const GOOGLE_SHEETS_CSV_URL =
+  process.env.GOOGLE_SHEETS_CSV_URL ||
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJeDG9X0muJuoGER9mLszaMfDDBSZth8bJSPuFjOrvMNInQRHMWAxzuh0jWlk7_Sgn9IOzlhXh8AX6/pub?output=csv";
+
+function normalizeText(value) {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+async function leerEventosDesdeHoja() {
+  try {
+    const response = await fetch(GOOGLE_SHEETS_CSV_URL, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    let csv = await response.text();
+    if (csv.startsWith("\uFEFF")) csv = csv.slice(1);
+
+    const lines = csv
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length < 2) return [];
+
+    const headers = parseCsvLine(lines[0]).map((header) => normalizeText(header));
+    const rows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCsvLine(lines[i]);
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] ?? "";
+      });
+      rows.push(row);
+    }
+
+    return rows;
+  } catch (error) {
+    console.error("Error leyendo la hoja de Google Sheets:", error);
+    return [];
+  }
+}
 
 if (!BOT_TOKEN) {
   console.error("❌ No se encontró el token del bot. Define DISCORD_TOKEN o TOKEN en .env");
   process.exit(1);
 }
 
-// ================= CLIENT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -53,10 +133,14 @@ const client = new Client({
   ],
 });
 
-// ================= CONTROL DE TEMPORIZADORES =================
 const guildsTimeouts = new Map();
 
-// ================= MENSAJE =================
+client.once(Events.ClientReady, async () => {
+  console.log(`Conectado como ${client.user.tag}`);
+  ensureDisplayModeMigration();
+  startAutoUpdate(client);
+});
+
 async function actualizarMensaje(client, guildId, updaterId = null) {
   const settings = await getSettings(guildId);
   if (!settings.channelId) return false;
@@ -138,19 +222,23 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 
   try {
+    const visualMode =
+      settings.displayMode === "all" || settings.displayMode === "today_tomorrow"
+        ? settings.displayMode
+        : "today_tomorrow";
+
     const embed = generarEmbedHorarios(
       eventos,
       settings.timezone,
       settings.additionalText,
       settings.ianaZone,
       settings.embedColor,
-      settings.displayMode || "all",
+      visualMode,
     );
 
     if (existingMessage) {
       try {
         await existingMessage.edit({ embeds: [embed] });
-        console.log(`Mensaje editado para guild=${guildId}. ID: ${existingMessage.id}`);
       } catch (editError) {
         const isMissingMessage =
           editError?.code === 10008 ||
@@ -158,16 +246,12 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
           /Unknown Message|Unknown Channel/i.test(String(editError?.message || ""));
 
         if (isMissingMessage) {
-          console.warn(
-            `Mensaje principal borrado al editar para guild=${guildId}. Se recreará. ID: ${settings.messageId}`,
-          );
           settings.messageId = null;
           await settings.save().catch(() => {});
 
           const m = await channel.send({ embeds: [embed] });
           settings.messageId = m.id;
           await settings.save();
-          console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
         } else {
           throw editError;
         }
@@ -176,7 +260,6 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       const m = await channel.send({ embeds: [embed] });
       settings.messageId = m.id;
       await settings.save();
-      console.log(`Nuevo mensaje creado para guild=${guildId}. ID: ${m.id}`);
     }
 
     if (guildsTimeouts.has(guildId)) {
@@ -193,8 +276,18 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
       offset,
     );
 
-    const proximoUpdate = proximoEvento
-      ? Math.min(proximoEvento.timestamp, proximaMedianocheTz)
+    const eventosEnGracia = eventos
+      .filter((e) => e.timestamp <= ahora && e.timestamp + 2 * 60 * 60 > ahora)
+      .map((e) => e.timestamp + 2 * 60 * 60);
+
+    const refreshCandidates = [
+      proximaMedianocheTz,
+      ...(proximoEvento ? [proximoEvento.timestamp] : []),
+      ...eventosEnGracia,
+    ];
+
+    const proximoUpdate = refreshCandidates.length
+      ? Math.min(...refreshCandidates)
       : proximaMedianocheTz;
 
     const delay = (proximoUpdate - ahora) * 1000 + 2000;
@@ -210,40 +303,28 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   }
 }
 
-// ================= PERMISOS =================
+function startAutoUpdate(client) {
+  console.log("Iniciando sistema de actualización automática por eventos...");
+
+  Settings.find({ channelId: { $exists: true } })
+    .then(async (allSettings) => {
+      for (const s of allSettings) {
+        try {
+          await actualizarMensaje(client, s.guildId);
+        } catch (err) {
+          console.error(`Error inicializando guild ${s.guildId}:`, err);
+        }
+      }
+    })
+    .catch((err) => console.error("Error cargando configuraciones iniciales:", err));
+}
+
 async function tienePermiso(interaction) {
   const settings = await getSettings(interaction.guild.id);
   if (!settings.roleId) return true;
   return interaction.member.roles.cache.has(settings.roleId);
 }
 
-// ================= AUTOUPDATE =================
-function startAutoUpdate(client) {
-  console.log("Iniciando sistema de actualización automática por eventos...");
-
-  Settings.find({ channelId: { $exists: true } })
-    .then((allSettings) => {
-      for (const s of allSettings) {
-        actualizarMensaje(client, s.guildId).catch((err) =>
-          console.error(`Error inicializando guild ${s.guildId}:`, err),
-        );
-      }
-    })
-    .catch((err) =>
-      console.error("Error cargando configuraciones iniciales:", err),
-    );
-}
-
-client.once(Events.ClientReady, () => {
-  console.log(`Conectado como ${client.user.tag}`);
-});
-
-client.on(Events.ClientReady, () => {
-  ensureDisplayModeMigration();
-  startAutoUpdate(client);
-});
-
-// ================= INTERACCIONES =================
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isAutocomplete()) {
@@ -270,11 +351,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const settings = await getSettings(interaction.guild.id);
         settings.additionalText = undefined;
         await settings.save();
-        await actualizarMensaje(
-          interaction.client,
-          interaction.guild.id,
-          interaction.user.id,
-        );
+        await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
@@ -320,6 +397,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "eliminar",
       "actualizar",
       "configuracion",
+      "importar",
+      "mensaje",
     ];
 
     if (adminOnly.includes(cmd)) {
@@ -341,6 +420,105 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(
           interaction,
           "❌ No tenés permisos para usar este comando.",
+        );
+      }
+    }
+
+    if (cmd === "importar") {
+      const settings = await getSettings(interaction.guild.id);
+      if (!settings.channelId) {
+        return await replyAndDelete(
+          interaction,
+          "❌ Primero define el canal de eventos con /canal antes de importar.",
+        );
+      }
+
+      try {
+        const rows = await leerEventosDesdeHoja();
+        if (!rows.length) {
+          return await replyAndDelete(
+            interaction,
+            "❌ No encontré eventos en la hoja pública o la URL no está disponible.",
+          );
+        }
+
+        const offset = settings.timezone;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const nowTz = tzComponentsFromTimestamp(nowSec, offset);
+
+        await EventModel.deleteMany({ guildId: interaction.guild.id });
+
+        for (const row of rows) {
+          const nombre = String(row.evento || "").trim();
+          const horario = String(row.horario || "").trim();
+          const dia = String(row.dia || "").trim();
+          const repetirRaw = String(row.repetir || "").trim();
+          const repetir = ["si", "yes", "true", "1", "s", "y"].includes(
+            normalizeText(repetirRaw),
+          );
+
+          if (!nombre || !horario || !TIME_RE.test(horario)) continue;
+
+          const [h, m] = horario.split(":").map(Number);
+          const dayMap = {
+            domingo: 0,
+            lunes: 1,
+            martes: 2,
+            miercoles: 3,
+            miércoles: 3,
+            jueves: 4,
+            viernes: 5,
+            sabado: 6,
+            sábado: 6,
+          };
+
+          let timestamp;
+          let repeatType = null;
+
+          if (dia) {
+            const targetWeekday = dayMap[normalizeText(dia)];
+            if (targetWeekday === undefined) continue;
+
+            timestamp = getNextWeeklyTimestamp(targetWeekday, h, m, nowSec, offset);
+            if (repetir) repeatType = "weekly";
+          } else {
+            timestamp = tzTimestampFromComponents(
+              nowTz.year,
+              nowTz.month,
+              nowTz.day,
+              h,
+              m,
+              offset,
+            );
+
+            if (timestamp < nowSec && repetir) timestamp += 24 * 60 * 60;
+            if (repetir) repeatType = "daily";
+          }
+
+          const id = await getNextEventId(interaction.guild.id);
+          const evento = new EventModel({
+            guildId: interaction.guild.id,
+            id,
+            nombre: nombre.toUpperCase(),
+            timestamp,
+            repeat: repeatType,
+            userId: interaction.user.id,
+            username: interaction.user.username,
+          });
+
+          await evento.save();
+        }
+
+        await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+        return await replyAndDelete(
+          interaction,
+          "✅ Eventos importados desde la hoja y cargados en MongoDB.",
+        );
+      } catch (error) {
+        console.error("Error importando eventos desde la hoja:", error);
+        return await replyAndDelete(
+          interaction,
+          "❌ No pude importar la hoja. Revisá la URL o el formato de las columnas.",
         );
       }
     }
@@ -449,15 +627,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (fechaTexto) {
         const [dia, mes] = fechaTexto.split("-").map(Number);
-        const targetDate = new Date(Date.UTC(year, mes - 1, dia, h, m));
-        timestamp = Math.floor(targetDate.getTime() / 1000);
+        timestamp = tzTimestampFromComponents(
+          year,
+          mes - 1,
+          dia,
+          h,
+          m,
+          offset,
+        );
+      } else if (diaInput) {
+        const targetWeekday = getWeekdayNumberFromText(diaInput);
+        if (targetWeekday === null) {
+          return await replyAndDelete(
+            interaction,
+            "❌ Día inválido. Usá un día de la semana válido (Lunes, Martes, etc.).",
+          );
+        }
+
+        timestamp = getNextWeeklyTimestamp(targetWeekday, h, m, nowSec, offset);
       } else {
         timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
-      }
-
-      // Si la hora ya pasó, agregar el evento para el próximo día
-      if (timestamp < nowSec) {
-        timestamp += 24 * 60 * 60; // Agregar 24 horas
       }
 
       let repeatType = null;
@@ -482,110 +671,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await replyAndDelete(
         interaction,
         `✅ Evento #${id} **AGREGADO**: **${nombre.toUpperCase()}**`,
-      );
-    }
-
-    if (cmd === "eliminar") {
-      const id = interaction.options.getInteger("id");
-
-      if (!Number.isInteger(id) || id <= 0) {
-        return await replyAndDelete(
-          interaction,
-          "❌ ID inválido. Debe ser un número entero positivo.",
-        );
-      }
-
-      const result = await EventModel.deleteOne({
-        guildId: interaction.guild.id,
-        id,
-      });
-
-      if (result.deletedCount === 0) {
-        return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
-      }
-
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
-
-      return await replyAndDelete(
-        interaction,
-        `✅ EVENTO #${id} **ELIMINADO**`,
-      );
-    }
-
-    if (cmd === "timezone") {
-      const ianaZoneInput = interaction.options.getString("zona");
-      const found = TIMEZONES_LIST.find(
-        (tz) =>
-          tz.value === ianaZoneInput ||
-          normalizeString(tz.name).includes(normalizeString(ianaZoneInput)),
-      );
-
-      if (!found) {
-        return await replyAndDelete(
-          interaction,
-          "❌ La zona horaria o país ingresado no es válido. Por favor, seleccioná una opción de la lista desplegable.",
-        );
-      }
-
-      const calculatedOffset = getOffsetHours(found.value);
-      if (calculatedOffset === null) {
-        return await replyAndDelete(
-          interaction,
-          "❌ No se pudo calcular el horario para esa zona.",
-        );
-      }
-
-      const settings = await getSettings(interaction.guild.id);
-      settings.timezone = calculatedOffset;
-      settings.ianaZone = found.value;
-      await settings.save();
-
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
-
-      const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
-      return await replyAndDelete(
-        interaction,
-        `🌍 Configuración actualizada: **${found.name}** (UTC ${calculatedOffset >= 0 ? "+" : ""}${calculatedOffset}) ${flag}`,
-      );
-    }
-
-    if (cmd === "color") {
-      const colorInput = interaction.options.getString("color") || "";
-      const normalized = colorInput.trim();
-      const validHex = /^#([0-9A-Fa-f]{6})$/.test(normalized);
-
-      if (!validHex) {
-        return await replyAndDelete(
-          interaction,
-          "❌ El color debe tener formato hexadecimal como #6c04f3",
-        );
-      }
-
-      const settings = await getSettings(interaction.guild.id);
-      settings.embedColor = normalized;
-      await settings.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
-
-      return await replyAndDelete(
-        interaction,
-        `✅ Color del embed actualizado: **${normalized}**`,
-      );
-    }
-
-    if (cmd === "mostrar") {
-      const modo = interaction.options.getString("modo");
-      const normalized = ["all", "today_tomorrow"].includes(modo) ? modo : "all";
-
-      const settings = await getSettings(interaction.guild.id);
-      settings.displayMode = normalized;
-      await settings.save();
-
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
-
-      const label = normalized === "all" ? "Modo edición" : "Próximos";
-      return await replyAndDelete(
-        interaction,
-        `✅ Modo de visualización: **${label}**`,
       );
     }
 
@@ -700,7 +785,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const embed = generarEmbedProximo(evento, settings.embedColor, settings.ianaZone || "Europe/Madrid");
+      const embed = generarEmbedProximo(
+        evento,
+        settings.embedColor,
+        settings.ianaZone || "Europe/Madrid",
+      );
       await interaction.editReply({ embeds: [embed] });
       return;
     }
@@ -741,148 +830,173 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, "❌ NO EXISTE");
       }
 
-      const oldName = evento.nombre;
-      let changedName = false;
-      let changedTime = false;
-      let changedDate = false;
-
-      if (nombre && nombre !== oldName) {
-        evento.nombre = nombre.toUpperCase();
-        changedName = true;
-      }
-
+      if (nombre) evento.nombre = nombre.toUpperCase();
       if (horario || fechaTexto) {
-        if (horario) changedTime = true;
         const settings = await getSettings(interaction.guild.id);
         const offset = settings.timezone;
-
+        const [h, m] = (horario || "00:00").split(":").map(Number);
         const nowSec = Math.floor(Date.now() / 1000);
-        const base = tzComponentsFromTimestamp(nowSec, offset);
+        const nowTz = tzComponentsFromTimestamp(nowSec, offset);
 
-        let year = base.year;
-        let month = base.month;
-        let day = base.day;
-        let hours = base.hour;
-        let minutes = base.minute;
-
+        let newTimestamp;
         if (fechaTexto) {
-          const parts = fechaTexto.split("-").map(Number);
-          if (
-            parts.length === 2 &&
-            Number.isInteger(parts[0]) &&
-            Number.isInteger(parts[1])
-          ) {
-            const [dia, mes] = parts;
-            if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12) {
-              month = mes - 1;
-              day = dia;
-            } else {
-              return await replyAndDelete(
-                interaction,
-                "❌ Formato de fecha inválido. Usa DD-MM (ej: 08-06)",
-              );
-            }
-          } else {
-            return await replyAndDelete(
-              interaction,
-              "❌ Formato de fecha inválido. Usa DD-MM (ej: 08-06)",
-            );
-          }
+          const [dia, mes] = fechaTexto.split("-").map(Number);
+          newTimestamp = tzTimestampFromComponents(
+            nowTz.year,
+            mes - 1,
+            dia,
+            h,
+            m,
+            offset,
+          );
+        } else {
+          newTimestamp = tzTimestampFromComponents(
+            nowTz.year,
+            nowTz.month,
+            nowTz.day,
+            h,
+            m,
+            offset,
+          );
         }
 
-        if (horario) {
-          const [h, m] = horario.split(":").map(Number);
-          hours = h;
-          minutes = m;
-        }
-
-        evento.timestamp = tzTimestampFromComponents(
-          year,
-          month,
-          day,
-          hours,
-          minutes,
-          offset,
-        );
-
-        if (!fechaTexto) {
-          const nowSec2 = Math.floor(Date.now() / 1000);
-          if (evento.timestamp <= nowSec2) evento.timestamp += 24 * 60 * 60;
-        }
-        changedDate = true;
+        evento.timestamp = newTimestamp;
       }
 
       await evento.save();
       await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
 
-      const details = [];
-      const settings = await getSettings(interaction.guild.id);
-      const offsetMsg = settings.timezone;
-      const offsetMs2 = offsetMsg * 60 * 60 * 1000;
-      const newDate = new Date(evento.timestamp * 1000);
-      const newDateInTZ = new Date(newDate.getTime() + offsetMs2);
-      const dd = String(newDateInTZ.getUTCDate()).padStart(2, "0");
-      const mm = String(newDateInTZ.getUTCMonth() + 1).padStart(2, "0");
-      const yyyy = String(newDateInTZ.getUTCFullYear());
-      const hh = String(newDateInTZ.getUTCHours()).padStart(2, "0");
-      const min = String(newDateInTZ.getUTCMinutes()).padStart(2, "0");
-
-      if (changedName)
-        details.push(`Nuevo nombre: **${evento.nombre.toUpperCase()}**`);
-      if (changedDate)
-        details.push(`Nueva fecha: **${dd}/${mm}/${yyyy} ${hh}:${min}**`);
-      else if (changedTime) details.push(`Nuevo horario: **${hh}:${min}**`);
-
-      const base = `✅ Evento #${id} **EDITADO**`;
-      const message = details.length
-        ? `${base} — ${details.join(" | ")}`
-        : base;
-
-      return await replyAndDelete(interaction, message);
+      return await replyAndDelete(
+        interaction,
+        `✅ EVENTO #${id} **EDITADO**`,
+      );
     }
 
-    if (cmd === "listar") {
-      const member = await interaction.guild.members
-        .fetch(interaction.user.id)
-        .catch(() => interaction.member);
-      const voiceChannel = member?.voice?.channel;
+    if (cmd === "eliminar") {
+      const id = interaction.options.getInteger("id");
 
-      if (!voiceChannel) {
-        return await replyAndDelete(interaction, "❌ No estás en un canal de voz.");
-      }
-
-      const members = Array.from(voiceChannel.members.values());
-
-      for (let i = members.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [members[i], members[j]] = [members[j], members[i]];
-      }
-
-      if (!members.length) {
+      if (!Number.isInteger(id) || id <= 0) {
         return await replyAndDelete(
           interaction,
-          "❌ No hay usuarios en tu canal de voz.",
+          "❌ ID inválido. Debe ser un número entero positivo.",
         );
       }
 
-      const lines = members.map((m) => {
-        const name =
-          m.nickname || (m.user && m.user.globalName) || m.user.username;
-        return `${name}`;
+      const result = await EventModel.deleteOne({
+        guildId: interaction.guild.id,
+        id,
       });
 
-      const content = "```\n" + lines.join("\n") + "\n```";
-      return await interaction.editReply({ content });
-    }
-  } catch (err) {
-    console.error("ERROR INTERACTION:", err);
+      if (result.deletedCount === 0) {
+        return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
+      }
 
-    if (interaction.isRepliable()) {
-      try {
-        return await replyAndDelete(interaction, "❌ Error interno del bot.");
-      } catch {}
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+
+      return await replyAndDelete(
+        interaction,
+        `✅ EVENTO #${id} **ELIMINADO**`,
+      );
     }
+
+    if (cmd === "mostrar") {
+      const modo = interaction.options.getString("modo");
+      const normalized = ["all", "today_tomorrow"].includes(modo) ? modo : "all";
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.displayMode = normalized;
+      await settings.save();
+
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+
+      const label = normalized === "all" ? "Modo: edición" : "Modo: próximo";
+      return await replyAndDelete(
+        interaction,
+        `✅ **${label}**`,
+      );
+    }
+
+    if (cmd === "timezone") {
+      const ianaZoneInput = interaction.options.getString("zona");
+      const found = TIMEZONES_LIST.find(
+        (tz) =>
+          tz.value === ianaZoneInput ||
+          normalizeString(tz.name).includes(normalizeString(ianaZoneInput)),
+      );
+
+      if (!found) {
+        return await replyAndDelete(
+          interaction,
+          "❌ La zona horaria o país ingresado no es válido. Por favor, seleccioná una opción de la lista desplegable.",
+        );
+      }
+
+      const calculatedOffset = getOffsetHours(found.value);
+      if (calculatedOffset === null) {
+        return await replyAndDelete(
+          interaction,
+          "❌ No se pudo calcular el horario para esa zona.",
+        );
+      }
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.timezone = calculatedOffset;
+      settings.ianaZone = found.value;
+      await settings.save();
+
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+
+      const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
+      return await replyAndDelete(
+        interaction,
+        `🌍 Configuración actualizada: **${found.name}** (UTC ${calculatedOffset >= 0 ? "+" : ""}${calculatedOffset}) ${flag}`,
+      );
+    }
+
+    if (cmd === "color") {
+      const colorInput = interaction.options.getString("color") || "";
+      const normalized = colorInput.trim();
+      const validHex = /^#([0-9A-Fa-f]{6})$/.test(normalized);
+
+      if (!validHex) {
+        return await replyAndDelete(
+          interaction,
+          "❌ El color debe tener formato hexadecimal como #6c04f3",
+        );
+      }
+
+      const settings = await getSettings(interaction.guild.id);
+      settings.embedColor = normalized;
+      await settings.save();
+      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+
+      return await replyAndDelete(
+        interaction,
+        `✅ Color del embed actualizado: **${normalized}**`,
+      );
+    }
+
+    if (cmd === "listar") {
+      const guild = interaction.guild;
+      const channel = guild.channels.cache.get((await getSettings(guild.id)).channelId);
+      if (!channel) {
+        return await replyAndDelete(interaction, "❌ No hay un canal de eventos configurado.");
+      }
+
+      const members = channel.members;
+      if (!members.size) {
+        return await replyAndDelete(interaction, "❌ No hay usuarios en el canal de voz.");
+      }
+
+      const list = [...members.values()].map((member) => member.displayName).join(", ");
+      return await interaction.editReply({ content: `👥 Usuarios en voz: ${list}` });
+    }
+  } catch (error) {
+    console.error("Error en InteractionCreate:", error);
   }
 });
 
-client.login(BOT_TOKEN.trim().replace(/^['"]|['"]$/g, ""));
+client.login(BOT_TOKEN).catch((err) => {
+  console.error("Error al iniciar el bot:", err);
+  process.exit(1);
+});

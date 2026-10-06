@@ -29,7 +29,7 @@ function getDayNameFromKey(key) {
 function buildEventText(evento, ahora, ianaZone, displayMode = "all") {
   const displayZone = ianaZone || "Europe/Madrid";
   const horaDisplay = formatTimeWithFlag(evento.timestamp, displayZone);
-  const idPart = displayMode === "all" ? `[#${evento.id}] ` : "";
+  const idPart = displayMode === "all" || displayMode === "today_tomorrow" ? `[#${evento.id}] ` : "";
   const titulo = evento.nombre ? `**${idPart}${evento.nombre}**` : `**${idPart}Evento**`;
   const horarioTexto = `${horaDisplay} - **<t:${evento.timestamp}:t>**\n(<t:${evento.timestamp}:R>)`;
   const text = `${titulo}\n${horarioTexto}`;
@@ -45,21 +45,48 @@ function buildDayBlock(dayName, items, ahora, ianaZone, displayMode = "all") {
   return `**${dayName}**\n■■■■■■■■■■■■■■■■■■■${value ? `\n${value}` : ""}`;  
 }
 
-function agruparEventosPorDia(eventos, offset, ahora, displayMode) {
-  const today = tzComponentsFromTimestamp(ahora, offset);
-  const todayKey = `${today.year}-${String(today.month + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-  const tomorrowDate = new Date(Date.UTC(today.year, today.month, today.day + 1));
-  const tomorrowKey = `${tomorrowDate.getUTCFullYear()}-${String(tomorrowDate.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowDate.getUTCDate()).padStart(2, "0")}`;
+function getLocalDateKey(timestamp, offset) {
+  const comp = tzComponentsFromTimestamp(timestamp, offset);
+  return `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
+}
 
+function getLocalDateKeyFromComponents(comp) {
+  return `${comp.year}-${String(comp.month + 1).padStart(2, "0")}-${String(comp.day).padStart(2, "0")}`;
+}
+
+function getTomorrowKey(nowComp) {
+  const utcDate = new Date(Date.UTC(nowComp.year, nowComp.month, nowComp.day + 1, 12, 0, 0));
+  return getLocalDateKeyFromComponents({
+    year: utcDate.getUTCFullYear(),
+    month: utcDate.getUTCMonth(),
+    day: utcDate.getUTCDate(),
+  });
+}
+
+function eventIsInTodayOrTomorrow(timestamp, nowSec, offset) {
+  const nowComp = tzComponentsFromTimestamp(nowSec, offset);
+  const eventKey = getLocalDateKey(timestamp, offset);
+  const todayKey = getLocalDateKeyFromComponents(nowComp);
+  const tomorrowKey = getTomorrowKey(nowComp);
+
+  return eventKey === todayKey || eventKey === tomorrowKey;
+}
+
+function eventIsVisibleInProximoMode(evento, nowSec, offset) {
+  if (!evento || evento.timestamp == null) return false;
+
+  if (evento.timestamp > nowSec) {
+    return eventIsInTodayOrTomorrow(evento.timestamp, nowSec, offset);
+  }
+
+  if (shouldHideExpiredEvent(evento, nowSec)) return false;
+  return true;
+}
+
+function agruparEventosPorDia(eventos, offset, ahora, displayMode = "all") {
   const filtered = eventos.filter((evento) => {
     if (displayMode !== "today_tomorrow") return true;
-
-    const key = getDayKey(evento.timestamp, offset);
-    const isWithinRange = key === todayKey || key === tomorrowKey;
-    if (!isWithinRange) return false;
-
-    // Ocultar eventos que pasaron hace 2+ horas
-    return !shouldHideExpiredEvent(evento, ahora);
+    return eventIsVisibleInProximoMode(evento, ahora, offset);
   });
 
   const groups = new Map();
@@ -94,9 +121,12 @@ function generarEmbedHorarios(
 
   let description = "\n";
   if (additionalText) description += `${additionalText}\n\n`;
+  description += `-# **Modo: ${displayMode === "all" ? "edición" : "próximo"}**`;
 
   if (groups.length === 0) {
-    embed.setDescription(description + "\n-# ✅ **ACTUALIZADO:** <t:${ahora}:t>");
+    embed.setDescription(
+      `${description}\n-# 😴 **No hay horarios cargados**\n-# ✅ **ACTUALIZADO:** <t:${ahora}:t>`,
+    );
     return embed;
   }
 
@@ -147,7 +177,7 @@ function generarContenidoHorarios(
 
     for (const evento of group.items) {
       const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone || "Europe/Madrid");
-      const idPart = displayMode === "all" ? `${evento.id} ` : "";
+      const idPart = `[#${evento.id}] `;
       const titulo = evento.nombre ? `${idPart}${evento.nombre}` : `${idPart}Evento`;
       out += `${titulo}\n${horaDisplay} - <t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>)\n\n`;
     }
@@ -170,7 +200,7 @@ function generarEmbedProximo(evento, embedColor = "#6c04f3", ianaZone = "Europe/
   const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone);
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `■■■■■■■■■■■■■■■■■■■\n\n**${evento.nombre}**\n**${horaDisplay}** (<t:${evento.timestamp}:R>)`,
+    `■■■■■■■■■■■■■■■■■■■\n\n**[#${evento.id}] ${evento.nombre}**\n**${horaDisplay}** (<t:${evento.timestamp}:R>)`,
   );
   return embed;
 }

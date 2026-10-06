@@ -167,6 +167,11 @@ const commands = [
         .setDescription("Color hex del embed (ej: #6c04f3)")
         .setRequired(true),
     ),
+  // COMANDO PARA IMPORTAR EVENTOS DESDE LA HOJA
+  new SlashCommandBuilder()
+    .setName("importar")
+    .setDescription("Importa los eventos desde la hoja pública a MongoDB.")
+    .setDMPermission(false),
 ].map((command) => command.toJSON());
 // REGISTRAR LOS COMANDOS EN DISCORD
 const rest = new REST({ version: "10" }).setToken(TOKEN);
