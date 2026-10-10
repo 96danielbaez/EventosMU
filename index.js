@@ -34,10 +34,7 @@ const {
   getNextWeeklyTimestamp,
 } = require("./src/helpers");
 
-const {
-  generarEmbedHorarios,
-  generarEmbedProximo,
-} = require("./src/embeds");
+const { generarEmbedHorarios, generarEmbedProximo } = require("./src/embeds");
 
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
 const GOOGLE_SHEETS_CSV_URL =
@@ -101,7 +98,9 @@ async function leerEventosDesdeHoja() {
 
     if (lines.length < 2) return [];
 
-    const headers = parseCsvLine(lines[0]).map((header) => normalizeText(header));
+    const headers = parseCsvLine(lines[0]).map((header) =>
+      normalizeText(header),
+    );
     const rows = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -121,7 +120,9 @@ async function leerEventosDesdeHoja() {
 }
 
 if (!BOT_TOKEN) {
-  console.error("❌ No se encontró el token del bot. Define DISCORD_TOKEN o TOKEN en .env");
+  console.error(
+    "❌ No se encontró el token del bot. Define DISCORD_TOKEN o TOKEN en .env",
+  );
   process.exit(1);
 }
 
@@ -149,7 +150,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
   try {
     channel = await client.channels.fetch(settings.channelId);
   } catch (error) {
-    console.error(`No se pudo obtener el canal ${settings.channelId} para guild ${guildId}:`, error);
+    console.error(
+      `No se pudo obtener el canal ${settings.channelId} para guild ${guildId}:`,
+      error,
+    );
     settings.channelId = null;
     await settings.save().catch(() => {});
     return false;
@@ -223,7 +227,8 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
 
   try {
     const visualMode =
-      settings.displayMode === "all" || settings.displayMode === "today_tomorrow"
+      settings.displayMode === "all" ||
+      settings.displayMode === "today_tomorrow"
         ? settings.displayMode
         : "today_tomorrow";
 
@@ -243,7 +248,9 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
         const isMissingMessage =
           editError?.code === 10008 ||
           editError?.status === 404 ||
-          /Unknown Message|Unknown Channel/i.test(String(editError?.message || ""));
+          /Unknown Message|Unknown Channel/i.test(
+            String(editError?.message || ""),
+          );
 
         if (isMissingMessage) {
           settings.messageId = null;
@@ -294,7 +301,10 @@ async function actualizarMensaje(client, guildId, updaterId = null) {
     const MAX_DELAY = 24 * 60 * 60 * 1000;
     const finalDelay = Math.max(0, Math.min(delay, MAX_DELAY));
 
-    const timer = setTimeout(() => actualizarMensaje(client, guildId), finalDelay);
+    const timer = setTimeout(
+      () => actualizarMensaje(client, guildId),
+      finalDelay,
+    );
     guildsTimeouts.set(guildId, timer);
     return true;
   } catch (err) {
@@ -316,7 +326,9 @@ function startAutoUpdate(client) {
         }
       }
     })
-    .catch((err) => console.error("Error cargando configuraciones iniciales:", err));
+    .catch((err) =>
+      console.error("Error cargando configuraciones iniciales:", err),
+    );
 }
 
 async function tienePermiso(interaction) {
@@ -351,7 +363,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const settings = await getSettings(interaction.guild.id);
         settings.additionalText = undefined;
         await settings.save();
-        await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+        await actualizarMensaje(
+          interaction.client,
+          interaction.guild.id,
+          interaction.user.id,
+        );
 
         const embed = new EmbedBuilder()
           .setDescription("✅ HORARIOS RESETEADOS")
@@ -390,7 +406,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ ephemeral: !isPublic });
     }
 
-    const adminOnly = ["permisos", "canal", "timezone", "resetear", "mostrar", "color"];
+    const adminOnly = [
+      "permisos",
+      "canal",
+      "timezone",
+      "resetear",
+      "mostrar",
+      "color",
+    ];
     const roleProtected = [
       "agregar",
       "editar",
@@ -479,7 +502,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
             const targetWeekday = dayMap[normalizeText(dia)];
             if (targetWeekday === undefined) continue;
 
-            timestamp = getNextWeeklyTimestamp(targetWeekday, h, m, nowSec, offset);
+            timestamp = getNextWeeklyTimestamp(
+              targetWeekday,
+              h,
+              m,
+              nowSec,
+              offset,
+            );
             if (repetir) repeatType = "weekly";
           } else {
             timestamp = tzTimestampFromComponents(
@@ -509,7 +538,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await evento.save();
         }
 
-        await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+        await actualizarMensaje(
+          interaction.client,
+          interaction.guild.id,
+          interaction.user.id,
+        );
         return await replyAndDelete(
           interaction,
           "✅ Eventos importados desde la hoja y cargados en MongoDB.",
@@ -526,7 +559,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (cmd === "permisos") {
       const rol = interaction.options.getRole("rol");
       if (!rol) {
-        return await replyAndDelete(interaction, "❌ Debés seleccionar un rol válido.");
+        return await replyAndDelete(
+          interaction,
+          "❌ Debés seleccionar un rol válido.",
+        );
       }
 
       const settings = await getSettings(interaction.guild.id);
@@ -548,7 +584,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       settings.channelId = canal.id;
       await settings.save();
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       return await replyAndDelete(
         interaction,
@@ -627,14 +667,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (fechaTexto) {
         const [dia, mes] = fechaTexto.split("-").map(Number);
-        timestamp = tzTimestampFromComponents(
-          year,
-          mes - 1,
-          dia,
-          h,
-          m,
-          offset,
-        );
+        timestamp = tzTimestampFromComponents(year, mes - 1, dia, h, m, offset);
       } else if (diaInput) {
         const targetWeekday = getWeekdayNumberFromText(diaInput);
         if (targetWeekday === null) {
@@ -666,7 +699,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
 
       await evento.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       return await replyAndDelete(
         interaction,
@@ -722,7 +759,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .addFields(
           {
             name: "📍 Canal de Eventos",
-            value: settings.channelId ? `<#${settings.channelId}>` : "No configurado",
+            value: settings.channelId
+              ? `<#${settings.channelId}>`
+              : "No configurado",
             inline: true,
           },
           {
@@ -732,7 +771,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           },
           {
             name: "🛡️ Rol con Permisos",
-            value: settings.roleId ? `<@&${settings.roleId}>` : "Todos (propietario/admin)",
+            value: settings.roleId
+              ? `<@&${settings.roleId}>`
+              : "Todos (propietario/admin)",
             inline: true,
           },
           {
@@ -757,7 +798,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.additionalText = texto || undefined;
       await settings.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       return await replyAndDelete(
         interaction,
@@ -864,12 +909,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       await evento.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
-
-      return await replyAndDelete(
-        interaction,
-        `✅ EVENTO #${id} **EDITADO**`,
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
       );
+
+      return await replyAndDelete(interaction, `✅ EVENTO #${id} **EDITADO**`);
     }
 
     if (cmd === "eliminar") {
@@ -891,7 +937,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return await replyAndDelete(interaction, `❌ No existe evento #${id}`);
       }
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       return await replyAndDelete(
         interaction,
@@ -901,19 +951,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (cmd === "mostrar") {
       const modo = interaction.options.getString("modo");
-      const normalized = ["all", "today_tomorrow"].includes(modo) ? modo : "all";
+      const normalized = ["all", "today_tomorrow"].includes(modo)
+        ? modo
+        : "all";
 
       const settings = await getSettings(interaction.guild.id);
       settings.displayMode = normalized;
       await settings.save();
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       const label = normalized === "all" ? "Modo: edición" : "Modo: próximo";
-      return await replyAndDelete(
-        interaction,
-        `✅ **${label}**`,
-      );
+      return await replyAndDelete(interaction, `✅ **${label}**`);
     }
 
     if (cmd === "timezone") {
@@ -944,7 +997,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       settings.ianaZone = found.value;
       await settings.save();
 
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
       return await replyAndDelete(
@@ -968,7 +1025,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const settings = await getSettings(interaction.guild.id);
       settings.embedColor = normalized;
       await settings.save();
-      await actualizarMensaje(interaction.client, interaction.guild.id, interaction.user.id);
+      await actualizarMensaje(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id,
+      );
 
       return await replyAndDelete(
         interaction,
@@ -978,18 +1039,39 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (cmd === "listar") {
       const guild = interaction.guild;
-      const channel = guild.channels.cache.get((await getSettings(guild.id)).channelId);
+      const channel = guild.channels.cache.get(
+        (await getSettings(guild.id)).channelId,
+      );
+
       if (!channel) {
-        return await replyAndDelete(interaction, "❌ No hay un canal de eventos configurado.");
+        return await replyAndDelete(
+          interaction,
+          "❌ No hay un canal de eventos configurado.",
+        );
       }
 
       const members = channel.members;
-      if (!members.size) {
-        return await replyAndDelete(interaction, "❌ No hay usuarios en el canal de voz.");
+
+      const users = [...members.values()].filter((member) => !member.user.bot);
+
+      if (!users.length) {
+        return await replyAndDelete(
+          interaction,
+          "❌ No hay usuarios en el canal de voz.",
+        );
       }
 
-      const list = [...members.values()].map((member) => member.displayName).join(", ");
-      return await interaction.editReply({ content: `👥 Usuarios en voz: ${list}` });
+      // Mezclar los usuarios aleatoriamente
+      for (let i = users.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [users[i], users[j]] = [users[j], users[i]];
+      }
+
+      const list = users.map((member) => member.displayName).join("\n");
+
+      return await interaction.editReply({
+        content: "# Participantes para el sorteo:\n-# Aquellos conectados al **Discord** (listado aleatorio automáticamente).\n" + `\`\`\`\n${list}\n\`\`\``,
+      });
     }
   } catch (error) {
     console.error("Error en InteractionCreate:", error);
