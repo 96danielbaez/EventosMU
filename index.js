@@ -1036,43 +1036,49 @@ client.on(Events.InteractionCreate, async (interaction) => {
         `✅ Color del embed actualizado: **${normalized}**`,
       );
     }
+// COMANDO /listar
+   if (cmd === "listar") {
+  const guild = interaction.guild;
+  const member = interaction.member;
 
-    if (cmd === "listar") {
-      const guild = interaction.guild;
-      const channel = guild.channels.cache.get(
-        (await getSettings(guild.id)).channelId,
-      );
+  // Comprobar si quien ejecuta el comando está en un canal de voz
+  const voiceChannel = member.voice.channel;
 
-      if (!channel) {
-        return await replyAndDelete(
-          interaction,
-          "❌ No hay un canal de eventos configurado.",
-        );
-      }
+  if (!voiceChannel) {
+    return await replyAndDelete(
+      interaction,
+      "❌ Tenés que estar conectado a un canal de voz para listar los participantes.",
+    );
+  }
 
-      const members = channel.members;
+  // Obtener los usuarios conectados a ese canal
+  const users = [...voiceChannel.members.values()]
+    .filter((member) => !member.user.bot);
 
-      const users = [...members.values()].filter((member) => !member.user.bot);
+  if (!users.length) {
+    return await replyAndDelete(
+      interaction,
+      "❌ No hay usuarios en el canal de voz.",
+    );
+  }
 
-      if (!users.length) {
-        return await replyAndDelete(
-          interaction,
-          "❌ No hay usuarios en el canal de voz.",
-        );
-      }
+  // Mezclar los usuarios aleatoriamente
+  for (let i = users.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [users[i], users[j]] = [users[j], users[i]];
+  }
 
-      // Mezclar los usuarios aleatoriamente
-      for (let i = users.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [users[i], users[j]] = [users[j], users[i]];
-      }
+  const list = users
+    .map((member) => member.displayName)
+    .join("\n");
 
-      const list = users.map((member) => member.displayName).join("\n");
-
-      return await interaction.editReply({
-        content: "# Participantes para el sorteo:\n-# Aquellos conectados al **Discord** (listado aleatorio automáticamente).\n" + `\`\`\`\n${list}\n\`\`\``,
-      });
-    }
+  return await interaction.editReply({
+    content:
+      "## Participantes para el sorteo.\n" +
+      `\`\`\`\n${list}\n\`\`\`\n` +
+      "-# No olvides de estar conectado al **Discord**.\n",
+  });
+}
   } catch (error) {
     console.error("Error en InteractionCreate:", error);
   }

@@ -121,11 +121,11 @@ function generarEmbedHorarios(
 
   let description = "\n";
   if (additionalText) description += `${additionalText}\n\n`;
-  description += `-# **Modo: ${displayMode === "all" ? "edición" : "próximo"}**`;
-
+  description += `-# **Modo: ${displayMode === "all" ? "edición" : "próximo"}**\n`;
+  description += `-# Horario server - horario local\n`;
   if (groups.length === 0) {
     embed.setDescription(
-      `${description}\n-# 😴 **No hay horarios cargados**\n-# ✅ **ACTUALIZADO:** <t:${ahora}:t>`,
+      `${description}\n-# 😴 **No hay horarios cargados**\n-# ✅ **Última actualización:** <t:${ahora}:t>`,
     );
     return embed;
   }
@@ -142,7 +142,7 @@ function generarEmbedHorarios(
 
   fields.push({
     name: "\u200A",
-    value: `-# ✅ **ACTUALIZADO:** <t:${ahora}:t>`,
+    value: `-# **Última actualización:**\n <t:${ahora}:t>`,
   });
 
   embed.addFields(fields);
@@ -200,7 +200,8 @@ function generarEmbedProximo(evento, embedColor = "#6c04f3", ianaZone = "Europe/
   const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone);
   embed.setTitle("PRÓXIMO EVENTO");
   embed.setDescription(
-    `■■■■■■■■■■■■■■■■■■■\n\n**[#${evento.id}] ${evento.nombre}**\n**${horaDisplay}** (<t:${evento.timestamp}:R>)`,
+    `■■■■■■■■■■■■■■■■■■■\n\n**${evento.nombre}**\n**${horaDisplay}** - <t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>).\n`+
+    `-# \u200A Horario server - horario local`,
   );
   return embed;
 }
