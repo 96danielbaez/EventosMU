@@ -680,6 +680,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         timestamp = getNextWeeklyTimestamp(targetWeekday, h, m, nowSec, offset);
       } else {
         timestamp = tzTimestampFromComponents(year, month, day, h, m, offset);
+        // Without an explicit date or weekday, /agregar means the next
+        // occurrence of this time. If today's time has passed, use tomorrow.
+        if (timestamp <= nowSec) timestamp += 24 * 60 * 60;
       }
 
       let repeatType = null;
