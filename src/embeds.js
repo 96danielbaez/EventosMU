@@ -203,15 +203,15 @@ function generarEmbedProximo(
   }
 
   const zonas = [
-    { nombre: "España", zona: "Europe/Madrid", bandera: "🇪🇸" },
+    { nombre: "ES", zona: "Europe/Madrid", bandera: "🇪🇸" },
     {
-      nombre: "Argentina",
+      nombre: "ARG",
       zona: "America/Argentina/Buenos_Aires",
       bandera: "🇦🇷",
     },
-    { nombre: "Venezuela", zona: "America/Caracas", bandera: "🇻🇪" },
-    { nombre: "Perú", zona: "America/Lima", bandera: "🇵🇪" },
-    { nombre: "Estados Unidos (Este)", zona: "America/New_York", bandera: "🇺🇸" },
+    { nombre: "VE", zona: "America/Caracas", bandera: "🇻🇪" },
+    { nombre: "PE", zona: "America/Lima", bandera: "🇵🇪" },
+    { nombre: "NY", zona: "America/New_York", bandera: "🇺🇸" },
   ];
 
   const formatters = new Map();
@@ -223,8 +223,6 @@ function generarEmbedProximo(
         new Intl.DateTimeFormat("es-ES", {
           timeZone: zona,
           weekday: "short",
-          day: "2-digit",
-          month: "2-digit",
           hour: "2-digit",
           minute: "2-digit",
           hourCycle: "h23",
@@ -254,11 +252,7 @@ function generarEmbedProximo(
       "",
       horarios,
       "",
-      `⏳ <t:${evento.timestamp}:R>`,
-      `-# Horario del servidor: ${formatoLocal(
-        evento.timestamp,
-        ianaZone,
-      )}`,
+      `⏳ Spawn en: **<t:${evento.timestamp}:R>**`,
     ].join("\n"),
   );
 
