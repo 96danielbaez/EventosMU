@@ -882,15 +882,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (horario || fechaTexto) {
         const settings = await getSettings(interaction.guild.id);
         const offset = settings.timezone;
-        const [h, m] = (horario || "00:00").split(":").map(Number);
-        const nowSec = Math.floor(Date.now() / 1000);
-        const nowTz = tzComponentsFromTimestamp(nowSec, offset);
+
+        // Recuperar la fecha y hora actuales del evento.
+        const fechaActual = tzComponentsFromTimestamp(evento.timestamp, offset);
+
+        // Si no se especifica una fecha, conservar la del evento.
+        const year = fechaActual.year;
+        const month = fechaActual.month;
+        const day = fechaActual.day;
+
+        // Si no se especifica un horario, conservar el actual.
+        const h = horario ? Number(horario.split(":")[0]) : fechaActual.hour;
+
+        const m = horario ? Number(horario.split(":")[1]) : fechaActual.minute;
 
         let newTimestamp;
+
         if (fechaTexto) {
           const [dia, mes] = fechaTexto.split("-").map(Number);
+
           newTimestamp = tzTimestampFromComponents(
-            nowTz.year,
+            year,
             mes - 1,
             dia,
             h,
@@ -899,9 +911,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           );
         } else {
           newTimestamp = tzTimestampFromComponents(
-            nowTz.year,
-            nowTz.month,
-            nowTz.day,
+            year,
+            month,
+            day,
             h,
             m,
             offset,
@@ -1039,49 +1051,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
         `✅ Color del embed actualizado: **${normalized}**`,
       );
     }
-// COMANDO /listar
-   if (cmd === "listar") {
-  const guild = interaction.guild;
-  const member = interaction.member;
+    // COMANDO /listar
+    if (cmd === "listar") {
+      const guild = interaction.guild;
+      const member = interaction.member;
 
-  // Comprobar si quien ejecuta el comando está en un canal de voz
-  const voiceChannel = member.voice.channel;
+      // Comprobar si quien ejecuta el comando está en un canal de voz
+      const voiceChannel = member.voice.channel;
 
-  if (!voiceChannel) {
-    return await replyAndDelete(
-      interaction,
-      "❌ Tenés que estar conectado a un canal de voz para listar los participantes.",
-    );
-  }
+      if (!voiceChannel) {
+        return await replyAndDelete(
+          interaction,
+          "❌ Tenés que estar conectado a un canal de voz para listar los participantes.",
+        );
+      }
 
-  // Obtener los usuarios conectados a ese canal
-  const users = [...voiceChannel.members.values()]
-    .filter((member) => !member.user.bot);
+      // Obtener los usuarios conectados a ese canal
+      const users = [...voiceChannel.members.values()].filter(
+        (member) => !member.user.bot,
+      );
 
-  if (!users.length) {
-    return await replyAndDelete(
-      interaction,
-      "❌ No hay usuarios en el canal de voz.",
-    );
-  }
+      if (!users.length) {
+        return await replyAndDelete(
+          interaction,
+          "❌ No hay usuarios en el canal de voz.",
+        );
+      }
 
-  // Mezclar los usuarios aleatoriamente
-  for (let i = users.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [users[i], users[j]] = [users[j], users[i]];
-  }
+      // Mezclar los usuarios aleatoriamente
+      for (let i = users.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [users[i], users[j]] = [users[j], users[i]];
+      }
 
-  const list = users
-    .map((member) => member.displayName)
-    .join("\n");
+      const list = users.map((member) => member.displayName).join("\n");
 
-  return await interaction.editReply({
-    content:
-      "## Participantes para el sorteo.\n" +
-      `\`\`\`\n${list}\n\`\`\`\n` +
-      "-# No olvides de estar conectado al **Discord**.\n",
-  });
-}
+      return await interaction.editReply({
+        content:
+          "## Participantes para el sorteo.\n" +
+          `\`\`\`\n${list}\n\`\`\`\n` +
+          "-# No olvides de estar conectado al **Discord**.\n",
+      });
+    }
   } catch (error) {
     console.error("Error en InteractionCreate:", error);
   }
