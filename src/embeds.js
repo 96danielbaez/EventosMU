@@ -188,23 +188,81 @@ function generarContenidoHorarios(
   return `${out}\nÚltima actualización: <t:${ahora}:t>`;
 }
 
-function generarEmbedProximo(evento, embedColor = "#6c04f3", ianaZone = "Europe/Madrid") {
-  const embed = new EmbedBuilder().setColor(embedColor);
+function generarEmbedProximo(
+  evento,
+  embedColor = "#6c04f3",
+  ianaZone = "Europe/Madrid",
+) {
+  const embed = new EmbedBuilder()
+    .setColor(embedColor)
+    .setTitle("🔔 PRÓXIMO EVENTO");
 
   if (!evento) {
-    embed.setTitle("PRÓXIMO EVENTO");
-    embed.setDescription("😴 **No hay eventos cargados**");
+    embed.setDescription("😴 **No hay próximos eventos cargados**");
     return embed;
   }
 
-  const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone);
-  embed.setTitle("PRÓXIMO EVENTO");
+  const zonas = [
+    { nombre: "España", zona: "Europe/Madrid", bandera: "🇪🇸" },
+    {
+      nombre: "Argentina",
+      zona: "America/Argentina/Buenos_Aires",
+      bandera: "🇦🇷",
+    },
+    { nombre: "Venezuela", zona: "America/Caracas", bandera: "🇻🇪" },
+    { nombre: "Perú", zona: "America/Lima", bandera: "🇵🇪" },
+    { nombre: "Estados Unidos (Este)", zona: "America/New_York", bandera: "🇺🇸" },
+  ];
+
+  const formatters = new Map();
+
+  function formatoLocal(timestamp, zona) {
+    if (!formatters.has(zona)) {
+      formatters.set(
+        zona,
+        new Intl.DateTimeFormat("es-ES", {
+          timeZone: zona,
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }),
+      );
+    }
+
+    return formatters.get(zona).format(
+      new Date(timestamp * 1000),
+    );
+  }
+
+  const horarios = zonas
+    .map(({ nombre, zona, bandera }) => {
+      return `${bandera} **${nombre}:** ${formatoLocal(
+        evento.timestamp,
+        zona,
+      )}`;
+    })
+    .join("\n");
+
   embed.setDescription(
-    `■■■■■■■■■■■■■■■■■■■\n\n**${evento.nombre}**\n**${horaDisplay}** - <t:${evento.timestamp}:t> (<t:${evento.timestamp}:R>).\n`+
-    `-# \u200A Horario server - horario local`,
+    [
+      "■■■■■■■■■■■■■■■■■■■",
+      "",
+      `**${evento.nombre}**`,
+      "",
+      horarios,
+      "",
+      `⏳ <t:${evento.timestamp}:R>`,
+      `-# Horario del servidor: ${formatoLocal(
+        evento.timestamp,
+        ianaZone,
+      )}`,
+    ].join("\n"),
   );
+
   return embed;
-}
 
 module.exports = {
   generarEmbedHorarios,
