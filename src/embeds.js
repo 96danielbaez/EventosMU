@@ -263,7 +263,7 @@ function generarEmbedProximo(
   );
 
   return embed;
-
+}
 module.exports = {
   generarEmbedHorarios,
   generarContenidoHorarios,
