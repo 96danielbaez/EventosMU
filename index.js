@@ -983,45 +983,70 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (cmd === "timezone") {
-      const ianaZoneInput = interaction.options.getString("zona");
-      const found = TIMEZONES_LIST.find(
-        (tz) =>
-          tz.value === ianaZoneInput ||
-          normalizeString(tz.name).includes(normalizeString(ianaZoneInput)),
-      );
+  const zona = interaction.options.getString("zona");
+  const manual = interaction.options.getNumber("manual");
 
-      if (!found) {
-        return await replyAndDelete(
-          interaction,
-          "❌ La zona horaria o país ingresado no es válido. Por favor, seleccioná una opción de la lista desplegable.",
-        );
-      }
+  // Debe elegirse exactamente una opción.
+  if ((zona && manual !== null) || (!zona && manual === null)) {
+    return await replyAndDelete(
+      interaction,
+      "❌ Elegí una sola opción: zona de la lista o desplazamiento manual."
+    );
+  }
 
-      const calculatedOffset = getOffsetHours(found.value);
-      if (calculatedOffset === null) {
-        return await replyAndDelete(
-          interaction,
-          "❌ No se pudo calcular el horario para esa zona.",
-        );
-      }
+  const settings = await getSettings(interaction.guild.id);
 
-      const settings = await getSettings(interaction.guild.id);
-      settings.timezone = calculatedOffset;
-      settings.ianaZone = found.value;
-      await settings.save();
-
-      await actualizarMensaje(
-        interaction.client,
-        interaction.guild.id,
-        interaction.user.id,
-      );
-
-      const flag = getFlagEmoji(IANA_TO_COUNTRY_CODE[found.value]);
+  if (manual !== null) {
+    if (!Number.isFinite(manual) || manual < -12 || manual > 14) {
       return await replyAndDelete(
         interaction,
-        `🌍 Configuración actualizada: **${found.name}** (UTC ${calculatedOffset >= 0 ? "+" : ""}${calculatedOffset}) ${flag}`,
+        "❌ El desplazamiento debe estar entre UTC-12 y UTC+14."
       );
     }
+
+    settings.timezone = manual;
+    settings.ianaZone = null;
+
+    await settings.save();
+    await actualizarMensaje(
+      interaction.client,
+      interaction.guild.id,
+      interaction.user.id
+    );
+
+    const signo = manual >= 0 ? "+" : "";
+    return await replyAndDelete(
+      interaction,
+      `✅ Zona horaria manual configurada: UTC${signo}${manual}.`
+    );
+  }
+
+  const found = TIMEZONES_LIST.find(
+    (tz) => tz.value === zona
+  );
+
+  if (!found) {
+    return await replyAndDelete(
+      interaction,
+      "❌ Seleccioná una zona horaria válida de la lista."
+    );
+  }
+
+  settings.timezone = getOffsetHours(found.value);
+  settings.ianaZone = found.value;
+
+  await settings.save();
+  await actualizarMensaje(
+    interaction.client,
+    interaction.guild.id,
+    interaction.user.id
+  );
+
+  return await replyAndDelete(
+    interaction,
+    `✅ Zona horaria configurada: ${found.name}.`
+  );
+}
 
     if (cmd === "color") {
       const colorInput = interaction.options.getString("color") || "";
