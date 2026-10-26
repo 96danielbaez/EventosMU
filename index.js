@@ -37,9 +37,7 @@ const {
 const { generarEmbedHorarios, generarEmbedProximo } = require("./src/embeds");
 
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
-const GOOGLE_SHEETS_CSV_URL =
-  process.env.GOOGLE_SHEETS_CSV_URL ||
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJeDG9X0muJuoGER9mLszaMfDDBSZth8bJSPuFjOrvMNInQRHMWAxzuh0jWlk7_Sgn9IOzlhXh8AX6/pub?output=csv";
+const GOOGLE_SHEETS_CSV_URL = process.env.GOOGLE_SHEETS_CSV_URL;
 
 function normalizeText(value) {
   return String(value ?? "")

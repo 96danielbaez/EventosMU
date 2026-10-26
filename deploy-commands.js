@@ -100,16 +100,24 @@ const commands = [
         .setDescription("Rol con permisos del bot.")
         .setRequired(true),
     ),
-  new SlashCommandBuilder()
+   new SlashCommandBuilder()
     .setName("timezone")
     .setDMPermission(false)
     .setDescription("Configura el huso horario del servidor.")
     .addStringOption((option) =>
       option
         .setName("zona")
-        .setDescription("Busca tu ciudad o país para configurar el horario base del servidor.")
-        .setRequired(true)
+        .setDescription("Elige una ciudad o zona horaria de la lista.")
+        .setRequired(false)
         .setAutocomplete(true),
+    )
+    .addNumberOption((option) =>
+      option
+        .setName("manual")
+        .setDescription("Desplazamiento UTC fijo en horas: 1, -3, 5.5, etc.")
+        .setRequired(false)
+        .setMinValue(-12)
+        .setMaxValue(14),
     ),
   new SlashCommandBuilder()
     .setName("mensaje")
