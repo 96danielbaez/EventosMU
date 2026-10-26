@@ -243,16 +243,35 @@ function shouldDeleteExpiredEvent(
   return shouldHideExpiredEvent(evento, nowSec, graceSeconds);
 }
 
-function formatTimeWithFlag(timestampSec, ianaZone = "Europe/Madrid") {
-  const zone = ianaZone || "Europe/Madrid";
-  const countryCode = IANA_TO_COUNTRY_CODE[zone];
-  const flag = getFlagEmoji(countryCode);
-  const hora = new Intl.DateTimeFormat("en-GB", {
-    timeZone: zone,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(timestampSec * 1000));
+function formatTimeWithFlag(timestampSec, ianaZone = null, offset = 0) {
+  let hora;
+  let countryCode = null;
 
+  if (ianaZone) {
+    // Zona IANA: aplica la hora correspondiente a esa zona.
+    hora = new Intl.DateTimeFormat("en-GB", {
+      timeZone: ianaZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(timestampSec * 1000));
+
+    countryCode = IANA_TO_COUNTRY_CODE[ianaZone];
+  } else {
+    // Modo manual: aplica un desplazamiento UTC fijo.
+    const fecha = new Date(
+      timestampSec * 1000 + Number(offset) * 60 * 60 * 1000,
+    );
+
+    hora = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(fecha);
+  }
+
+  const flag = getFlagEmoji(countryCode);
   return `${flag ? `${flag}\u00A0\u00A0` : ""}${hora}`;
 }
 

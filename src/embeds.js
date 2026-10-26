@@ -26,25 +26,36 @@ function getDayNameFromKey(key) {
   return DAY_NAMES[utcDate.getUTCDay()].toUpperCase();
 }
 
-function buildEventText(evento, ahora, ianaZone, displayMode = "all") {
-  const displayZone = ianaZone || "Europe/Madrid";
-  const horaDisplay = formatTimeWithFlag(evento.timestamp, displayZone);
+function buildEventText(evento, ahora, ianaZone, offset, displayMode = "all") {
+  const horaDisplay = formatTimeWithFlag(evento.timestamp, ianaZone, offset);
+
   const idPart =
     displayMode === "all" || displayMode === "today_tomorrow"
       ? `[#${evento.id}] `
       : "";
+
   const titulo = evento.nombre
     ? `**${idPart}${evento.nombre}**`
     : `**${idPart}Evento**`;
+
   const horarioTexto = `${horaDisplay} - **<t:${evento.timestamp}:t>**\n(<t:${evento.timestamp}:R>)`;
   const text = `${titulo}\n${horarioTexto}`;
+
   return ahora > evento.timestamp ? `~~${text}~~` : text;
 }
 
-function buildDayBlock(dayName, items, ahora, ianaZone, displayMode = "all") {
+function buildDayBlock(
+  dayName,
+  items,
+  ahora,
+  ianaZone,
+  offset,
+  displayMode = "all",
+) {
   const eventLines = items.map((evento) =>
-    buildEventText(evento, ahora, ianaZone, displayMode),
+    buildEventText(evento, ahora, ianaZone, offset, displayMode),
   );
+
   const value = eventLines
     .map(
       (line, index) => `${line}${index < eventLines.length - 1 ? "\n\n" : ""}`,
@@ -156,7 +167,7 @@ function generarEmbedHorarios(
       displayMode === "today_tomorrow"
         ? group.items
             .map((evento) =>
-              buildEventText(evento, ahora, ianaZone, displayMode),
+              buildEventText(evento, ahora, ianaZone, offset, displayMode),
             )
             .join("\n\n")
         : buildDayBlock(
@@ -164,6 +175,7 @@ function generarEmbedHorarios(
             group.items,
             ahora,
             ianaZone,
+            offset,
             displayMode,
           );
     fields.push({ name: "\u200B", value, inline: false });
@@ -207,7 +219,8 @@ function generarContenidoHorarios(
     for (const evento of group.items) {
       const horaDisplay = formatTimeWithFlag(
         evento.timestamp,
-        ianaZone || "Europe/Madrid",
+        ianaZone,
+        offset,
       );
       const idPart = `[#${evento.id}] `;
       const titulo = evento.nombre
